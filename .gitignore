@@ -9,3 +9,4 @@ _*
 
 # Store .git files
 !.git*
+/out/
