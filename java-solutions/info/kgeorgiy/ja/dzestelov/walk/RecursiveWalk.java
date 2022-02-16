@@ -18,8 +18,6 @@ public class RecursiveWalk {
             walker.walk();
         } catch (WalkerException e) {
             System.out.println("WalkerException: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
         }
     }
 }

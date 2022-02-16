@@ -7,6 +7,7 @@ import info.kgeorgiy.ja.dzestelov.walk.walker.Walker;
 import java.nio.charset.StandardCharsets;
 
 public class Walk {
+
     public static void main(String[] args) {
         try {
             if (args == null || args.length != 2) {
@@ -17,8 +18,6 @@ public class Walk {
             walker.walk();
         } catch (WalkerException e) {
             System.out.println("WalkerException: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
         }
     }
 }

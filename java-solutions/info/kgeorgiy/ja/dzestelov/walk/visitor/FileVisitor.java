@@ -1,10 +1,8 @@
 package info.kgeorgiy.ja.dzestelov.walk.visitor;
 
-import info.kgeorgiy.ja.dzestelov.walk.FileChecksum;
-import info.kgeorgiy.ja.dzestelov.walk.Walk;
+import info.kgeorgiy.ja.dzestelov.walk.FileChecksumBuilder;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
@@ -12,23 +10,28 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 public class FileVisitor extends SimpleFileVisitor<Path> {
 
-    private final BufferedWriter WRITER;
-    private final FileChecksum FILE_CHECKSUM;
+    private final BufferedWriter writer;
+    private final FileChecksumBuilder checksumBuilder;
 
-    public FileVisitor(FileChecksum fileChecksum, BufferedWriter writer) {
-        WRITER = writer;
-        FILE_CHECKSUM = fileChecksum;
+    public FileVisitor(FileChecksumBuilder fileChecksum, BufferedWriter writer) {
+        this.writer = writer;
+        checksumBuilder = fileChecksum;
     }
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-        writeString(WRITER,FILE_CHECKSUM.getFileChecksum(file) + " " + file);
+        writeString(writer, checksumBuilder.getStringChecksum(file) + " " + file);
         return FileVisitResult.CONTINUE;
     }
 
     @Override
     public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-        writeString(WRITER,FILE_CHECKSUM.EMPTY_CHECKSUM + " " + file);
+        writeString(writer, FileChecksumBuilder.getEmptyStringChecksum() + " " + file);
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
         return FileVisitResult.CONTINUE;
     }
 
