@@ -30,7 +30,7 @@ public class FileChecksumBuilder {
     public byte[] getChecksum(Path path) {
         try (InputStream inputStream = Files.newInputStream(path)) {
             int read;
-            byte[] buff = new byte[BUFFER_SIZE];
+            final byte[] buff = new byte[BUFFER_SIZE];
             while ((read = inputStream.read(buff)) != -1) {
                 messageDigest.update(buff, 0, read);
             }

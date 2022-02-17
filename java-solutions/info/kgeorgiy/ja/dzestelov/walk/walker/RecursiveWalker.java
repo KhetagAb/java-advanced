@@ -12,8 +12,8 @@ import java.nio.file.Path;
 
 public class RecursiveWalker extends BaseWalker {
 
-    public RecursiveWalker(String inputFile, String outputFile, Charset charset, FileChecksumBuilder checksumBuilder) throws WalkerException {
-        super(inputFile, outputFile, charset, checksumBuilder);
+    public RecursiveWalker(final String inputFile, final String outputFile, final Charset charset, final String hashAlgorithmName) throws WalkerException, NoSuchAlgorithmException {
+        super(inputFile, outputFile, charset, hashAlgorithmName);
     }
 
     @Override

@@ -35,7 +35,7 @@ public abstract class BaseWalker {
         this.charset = charset;
     }
 
-    private Path getPath(String fileNAme, String name) throws WalkerException {
+    private static Path getPath(final String fileNAme, final String name) throws WalkerException {
         try {
             return Path.of(fileNAme);
         } catch (final InvalidPathException e) {
@@ -70,10 +70,10 @@ public abstract class BaseWalker {
         }
     }
 
-    private String readInputFileLine(BufferedReader bufferedReader) throws WalkerException {
+    private String readInputFileLine(final BufferedReader bufferedReader) throws WalkerException {
         try {
             return bufferedReader.readLine();
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new WalkerException("Unable to read line from input file: " + e.getMessage(), e);
         }
     }
