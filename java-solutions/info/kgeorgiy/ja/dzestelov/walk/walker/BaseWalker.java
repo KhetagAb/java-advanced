@@ -62,10 +62,10 @@ public abstract class BaseWalker {
                         writeString(outputWriter, fileChecksum.getEmptyStringChecksum() + " " + line);
                     }
                 }
-            } catch (final IOException | SecurityException e) {
+            } catch (final IOException e) {
                 throw new WalkerException("Unable to write data to output file: " + e.getMessage(), e);
             }
-        } catch (final IOException | SecurityException e) {
+        } catch (final IOException e) {
             throw new WalkerException("Unable to read input file: " + e.getMessage(), e);
         }
     }

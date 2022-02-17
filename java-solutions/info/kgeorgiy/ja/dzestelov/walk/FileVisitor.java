@@ -25,7 +25,7 @@ public class FileVisitor extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFileFailed(final Path file, final IOException exc) throws IOException {
-        writeString(writer, FileChecksumBuilder.getEmptyStringChecksum() + " " + file);
+        writeString(writer, checksumBuilder.getEmptyStringChecksum() + " " + file);
         return FileVisitResult.CONTINUE;
     }
 
