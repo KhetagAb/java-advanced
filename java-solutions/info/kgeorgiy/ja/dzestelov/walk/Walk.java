@@ -9,11 +9,12 @@ import java.nio.charset.StandardCharsets;
 public class Walk {
 
     public static void main(String[] args) {
-        try {
-            if (args == null || args.length != 2) {
-                throw new WalkerException("Usage: java Walk <input file> <output file>");
-            }
+        if (args == null || args.length != 2 || args[0] == null || args[1] == null) {
+            System.out.println("Usage: java Walk <input file> <output file>");
+            return;
+        }
 
+        try {
             Walker walker = new SimpleWalker(args[0], args[1], StandardCharsets.UTF_8, "SHA-1");
             walker.walk();
         } catch (WalkerException e) {

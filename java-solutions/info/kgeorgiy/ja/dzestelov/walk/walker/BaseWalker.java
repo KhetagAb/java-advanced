@@ -15,7 +15,7 @@ public abstract class BaseWalker implements Walker {
 
     private final FileChecksumBuilder fileChecksum;
 
-    private final Charset CHARSET;
+    private final Charset charset;
     private final Path input;
     private final Path output;
 
@@ -50,12 +50,12 @@ public abstract class BaseWalker implements Walker {
             }
         }
 
-        this.CHARSET = charset;
+        this.charset = charset;
     }
 
     public void walk() throws WalkerException {
-        try (BufferedReader inputReader = Files.newBufferedReader(input, CHARSET);
-             BufferedWriter outputWriter = Files.newBufferedWriter(output, CHARSET)) {
+        try (BufferedReader inputReader = Files.newBufferedReader(input, charset);
+             BufferedWriter outputWriter = Files.newBufferedWriter(output, charset)) {
             String line;
             while ((line = inputReader.readLine()) != null) {
                 process(line, fileChecksum, outputWriter);
