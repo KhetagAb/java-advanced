@@ -33,8 +33,7 @@ public abstract class BaseWalker {
         if (parent != null) {
             try {
                 Files.createDirectories(parent);
-            } catch (final IOException | SecurityException e) {
-                throw new WalkerException("Unable to create output file parent directories: " + e.getMessage(), e);
+            } catch (IOException ignored) {
             }
         }
 
