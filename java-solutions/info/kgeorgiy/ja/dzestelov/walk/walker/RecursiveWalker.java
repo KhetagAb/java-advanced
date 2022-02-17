@@ -14,17 +14,16 @@ import java.security.NoSuchAlgorithmException;
 
 public class RecursiveWalker extends BaseWalker {
 
-    public RecursiveWalker(String inputFile, String outputFile, Charset charset, String hashAlgorithmName) throws WalkerException, NoSuchAlgorithmException {
+    public RecursiveWalker(final String inputFile, final String outputFile, final Charset charset, final String hashAlgorithmName) throws WalkerException, NoSuchAlgorithmException {
         super(inputFile, outputFile, charset, hashAlgorithmName);
     }
 
     @Override
-    protected void process(String line, FileChecksumBuilder fileChecksum, BufferedWriter writer) throws IOException {
+    protected void process(final String line, final FileChecksumBuilder fileChecksum, final BufferedWriter writer) throws IOException {
         try {
-            FileVisitor fileVisitor = new FileVisitor(fileChecksum, writer);
-            Files.walkFileTree(Path.of(line), fileVisitor);
-        } catch (InvalidPathException e) {
-            writeString(writer, FileChecksumBuilder.getEmptyStringChecksum() + " " + line);
+            Files.walkFileTree(Path.of(line), new FileVisitor(fileChecksum, writer));
+        } catch (final InvalidPathException e) {
+            writeString(writer, fileChecksum.getEmptyStringChecksum() + " " + line);
         }
     }
 }

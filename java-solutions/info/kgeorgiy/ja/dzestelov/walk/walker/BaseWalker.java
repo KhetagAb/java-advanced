@@ -33,14 +33,14 @@ public abstract class BaseWalker {
         if (parent != null) {
             try {
                 Files.createDirectories(parent);
-            } catch (IOException ignored) {
+            } catch (final IOException ignored) {
             }
         }
 
         this.charset = charset;
     }
 
-    private Path getPath(String fileNAme, String name) throws WalkerException {
+    private static Path getPath(final String fileNAme, final String name) throws WalkerException {
         try {
             return Path.of(fileNAme);
         } catch (final InvalidPathException e) {
@@ -50,8 +50,7 @@ public abstract class BaseWalker {
 
     public void walk() throws WalkerException {
         try (final BufferedReader inputReader = Files.newBufferedReader(input, charset)) {
-            try (
-                    final BufferedWriter outputWriter = Files.newBufferedWriter(output, charset)) {
+            try (final BufferedWriter outputWriter = Files.newBufferedWriter(output, charset)) {
                 String line;
                 while ((line = readInputFileLine(inputReader)) != null) {
                     process(line, fileChecksum, outputWriter);
@@ -64,10 +63,10 @@ public abstract class BaseWalker {
         }
     }
 
-    private String readInputFileLine(BufferedReader bufferedReader) throws WalkerException {
+    private String readInputFileLine(final BufferedReader bufferedReader) throws WalkerException {
         try {
             return bufferedReader.readLine();
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new WalkerException("Unable to read line from input file: " + e.getMessage(), e);
         }
     }

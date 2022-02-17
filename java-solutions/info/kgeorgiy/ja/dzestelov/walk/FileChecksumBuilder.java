@@ -14,17 +14,17 @@ public class FileChecksumBuilder {
     private static final int EMPTY_CHECKSUM_SIZE = 20;
     private static final int BUFFER_SIZE = 1 << 16;
 
-    private final MessageDigest MESSAGE_DIGEST;
+    private final MessageDigest messageDigest;
 
-    public FileChecksumBuilder(String hashAlgorithmName) throws NoSuchAlgorithmException {
-        MESSAGE_DIGEST = MessageDigest.getInstance(hashAlgorithmName);
+    public FileChecksumBuilder(final String hashAlgorithmName) throws NoSuchAlgorithmException {
+        messageDigest = MessageDigest.getInstance(hashAlgorithmName);
     }
 
     public String getStringChecksum(String file) {
         return toString(getChecksum(file));
     }
 
-    public String getStringChecksum(Path path) {
+    public String getStringChecksum(final Path path) {
         return toString(getChecksum(path));
     }
 
@@ -35,21 +35,21 @@ public class FileChecksumBuilder {
     public byte[] getChecksum(String file) {
         try {
             return getChecksum(Path.of(file));
-        } catch (InvalidPathException e) {
+        } catch (final InvalidPathException e) {
             return getEmptyChecksum();
         }
     }
 
-    public byte[] getChecksum(Path path) {
-        try (InputStream inputStream = Files.newInputStream(path)) {
+    public byte[] getChecksum(final Path path) {
+        try (final InputStream inputStream = Files.newInputStream(path)) {
             int read;
-            byte[] buff = new byte[BUFFER_SIZE];
+            final byte[] buff = new byte[BUFFER_SIZE];
             while ((read = inputStream.read(buff)) != -1) {
-                MESSAGE_DIGEST.update(buff, 0, read);
+                messageDigest.update(buff, 0, read);
             }
-            return MESSAGE_DIGEST.digest();
+            return messageDigest.digest();
         } catch (IOException | SecurityException e) {
-            MESSAGE_DIGEST.reset();
+            messageDigest.reset();
             return getEmptyChecksum();
         }
     }
