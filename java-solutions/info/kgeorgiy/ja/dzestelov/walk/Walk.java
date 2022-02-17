@@ -1,8 +1,19 @@
 package info.kgeorgiy.ja.dzestelov.walk;
 
-public class Walk {
+import info.kgeorgiy.ja.dzestelov.walk.walker.BaseWalker;
+import info.kgeorgiy.ja.dzestelov.walk.walker.SimpleWalker;
+import info.kgeorgiy.ja.dzestelov.walk.walker.WalkerException;
+
+import java.nio.charset.Charset;
+
+public class Walk extends BaseWalk {
 
     public static void main(final String[] args) {
-        new BaseWalk().run(args, false);
+        new Walk().run(args);
+    }
+
+    @Override
+    protected BaseWalker getWalker(String input, String output, Charset charset) throws WalkerException {
+        return new SimpleWalker(input, output, charset);
     }
 }
