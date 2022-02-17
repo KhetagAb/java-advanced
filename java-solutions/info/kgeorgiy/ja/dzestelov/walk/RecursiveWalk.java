@@ -6,6 +6,7 @@ import info.kgeorgiy.ja.dzestelov.walk.walker.RecursiveWalker;
 
 import java.nio.charset.StandardCharsets;
 
+// :NOTE: Копипаста
 public class RecursiveWalk {
 
     public static void main(String[] args) {
