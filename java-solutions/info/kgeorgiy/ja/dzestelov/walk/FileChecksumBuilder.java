@@ -23,10 +23,6 @@ public class FileChecksumBuilder {
         return toString(getChecksum(path));
     }
 
-    public String getEmptyStringChecksum() {
-        return toString(getEmptyChecksum());
-    }
-
     public byte[] getChecksum(Path path) {
         try (InputStream inputStream = Files.newInputStream(path)) {
             int read;
@@ -35,10 +31,14 @@ public class FileChecksumBuilder {
                 messageDigest.update(buff, 0, read);
             }
             return messageDigest.digest();
-        } catch (IOException | SecurityException e) {
+        } catch (IOException e) {
             messageDigest.reset();
             return getEmptyChecksum();
         }
+    }
+
+    public String getEmptyStringChecksum() {
+        return toString(getEmptyChecksum());
     }
 
     public byte[] getEmptyChecksum() {

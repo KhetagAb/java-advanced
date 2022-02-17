@@ -1,7 +1,7 @@
 package info.kgeorgiy.ja.dzestelov.walk.walker;
 
 import info.kgeorgiy.ja.dzestelov.walk.FileChecksumBuilder;
-import info.kgeorgiy.ja.dzestelov.walk.WalkerException;
+import info.kgeorgiy.ja.dzestelov.walk.FileVisitor;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -13,25 +13,21 @@ import java.nio.file.Path;
 
 public abstract class BaseWalker {
 
-    private final FileChecksumBuilder fileChecksum;
-
     private final Charset charset;
     private final Path input;
     private final Path output;
 
-    public BaseWalker(final String inputFile, final String outputFile, final Charset charset, final FileChecksumBuilder checksumBuilder) throws WalkerException {
+    public BaseWalker(final String inputFile, final String outputFile, final Charset charset) throws WalkerException {
         if (inputFile == null || outputFile == null) {
-            throw new WalkerException("Input and output file names must be not null");
+            throw new NullPointerException("Input and output file names must be not null");
+        }
+
+        if (charset == null) {
+            throw new NullPointerException("Charset must be not null");
         }
 
         this.input = getPath(inputFile, "input");
         this.output = getPath(outputFile, "output");
-
-        if (charset == null || checksumBuilder == null) {
-            throw new WalkerException("Charset and FileChecksumBuilder must be not null");
-        }
-
-        this.fileChecksum = checksumBuilder;
         this.charset = charset;
     }
 
@@ -43,21 +39,28 @@ public abstract class BaseWalker {
         }
     }
 
-    public void walk() throws WalkerException {
+    public void walk(final FileChecksumBuilder fileChecksum) throws WalkerException {
+        if (fileChecksum == null) {
+            throw new NullPointerException("File visitor and checksum builder must be not null");
+        }
+
         final Path parent = this.output.getParent();
         if (parent != null) {
             try {
                 Files.createDirectories(parent);
             } catch (IOException ignored) {
+                // empty
             }
         }
 
         try (final BufferedReader inputReader = Files.newBufferedReader(input, charset)) {
             try (final BufferedWriter outputWriter = Files.newBufferedWriter(output, charset)) {
+                FileVisitor fileVisitor = getFileVisitor(outputWriter, fileChecksum);
+
                 String line;
                 while ((line = readInputFileLine(inputReader)) != null) {
                     try {
-                        process(Path.of(line), fileChecksum, outputWriter);
+                        Files.walkFileTree(Path.of(line), fileVisitor);
                     } catch (InvalidPathException e) {
                         writeString(outputWriter, fileChecksum.getEmptyStringChecksum() + " " + line);
                     }
@@ -70,6 +73,8 @@ public abstract class BaseWalker {
         }
     }
 
+    protected abstract FileVisitor getFileVisitor(BufferedWriter outputWriter, FileChecksumBuilder fileChecksum);
+
     private String readInputFileLine(final BufferedReader bufferedReader) throws WalkerException {
         try {
             return bufferedReader.readLine();
@@ -77,8 +82,6 @@ public abstract class BaseWalker {
             throw new WalkerException("Unable to read line from input file: " + e.getMessage(), e);
         }
     }
-
-    protected abstract void process(Path line, FileChecksumBuilder fileChecksum, BufferedWriter writer) throws IOException;
 
     protected static void writeString(final BufferedWriter writer, final String data) throws IOException {
         writer.write(data);

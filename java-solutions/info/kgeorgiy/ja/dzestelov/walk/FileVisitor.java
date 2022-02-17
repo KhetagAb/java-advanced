@@ -7,35 +7,30 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 
-public class FileVisitor extends SimpleFileVisitor<Path> {
+public abstract class FileVisitor extends SimpleFileVisitor<Path> {
 
-    private final BufferedWriter writer;
-    private final FileChecksumBuilder checksumBuilder;
+    protected final BufferedWriter writer;
+    protected final FileChecksumBuilder checksumBuilder;
 
-    public FileVisitor(final FileChecksumBuilder fileChecksum, final BufferedWriter writer) {
+    public FileVisitor(final BufferedWriter writer, final FileChecksumBuilder checksumBuilder) {
         this.writer = writer;
-        checksumBuilder = fileChecksum;
+        this.checksumBuilder = checksumBuilder;
     }
 
     @Override
     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-        writeString(writer, checksumBuilder.getStringChecksum(file) + " " + file);
+        writeString(checksumBuilder.getStringChecksum(file) + " " + file);
         return FileVisitResult.CONTINUE;
     }
 
     @Override
     public FileVisitResult visitFileFailed(final Path file, final IOException exc) throws IOException {
-        writeString(writer, checksumBuilder.getEmptyStringChecksum() + " " + file);
+        writeString(checksumBuilder.getEmptyStringChecksum() + " " + file);
         return FileVisitResult.CONTINUE;
     }
 
-    @Override
-    public FileVisitResult postVisitDirectory(final Path dir, final IOException exc) {
-        return FileVisitResult.CONTINUE;
-    }
-
-    private static void writeString(final BufferedWriter writer, final String data) throws IOException {
-        writer.write(data);
+    protected void writeString(final String string) throws IOException {
+        writer.write(string);
         writer.newLine();
     }
 }
