@@ -1,8 +1,8 @@
 package info.kgeorgiy.ja.dzestelov.walk;
 
 import info.kgeorgiy.ja.dzestelov.walk.exception.WalkerException;
+import info.kgeorgiy.ja.dzestelov.walk.walker.BaseWalker;
 import info.kgeorgiy.ja.dzestelov.walk.walker.SimpleWalker;
-import info.kgeorgiy.ja.dzestelov.walk.walker.Walker;
 
 import java.nio.charset.StandardCharsets;
 
@@ -15,7 +15,7 @@ public class Walk {
         }
 
         try {
-            Walker walker = new SimpleWalker(args[0], args[1], StandardCharsets.UTF_8, "SHA-1");
+            BaseWalker walker = new SimpleWalker(args[0], args[1], StandardCharsets.UTF_8, "SHA-1");
             walker.walk();
         } catch (WalkerException e) {
             System.out.println("WalkerException: " + e.getMessage());

@@ -11,7 +11,7 @@ import java.nio.file.Path;
 
 import java.security.NoSuchAlgorithmException;
 
-public abstract class BaseWalker implements Walker {
+public abstract class BaseWalker {
 
     private final FileChecksumBuilder fileChecksum;
 
