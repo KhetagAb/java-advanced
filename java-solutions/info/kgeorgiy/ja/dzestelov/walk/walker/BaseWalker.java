@@ -10,7 +10,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.security.NoSuchAlgorithmException;
 
 public abstract class BaseWalker {
 
@@ -20,23 +19,19 @@ public abstract class BaseWalker {
     private final Path input;
     private final Path output;
 
-    public BaseWalker(final String inputFile, final String outputFile, final Charset charset, final String hashAlgorithmName) throws WalkerException, NoSuchAlgorithmException {
+    public BaseWalker(final String inputFile, final String outputFile, final Charset charset, final FileChecksumBuilder checksumBuilder) throws WalkerException {
         if (inputFile == null || outputFile == null) {
             throw new WalkerException("Input and output file names must be not null");
         }
 
-        this.fileChecksum = new FileChecksumBuilder(hashAlgorithmName);
         this.input = getPath(inputFile, "input");
         this.output = getPath(outputFile, "output");
 
-        final Path parent = this.output.getParent();
-        if (parent != null) {
-            try {
-                Files.createDirectories(parent);
-            } catch (IOException ignored) {
-            }
+        if (charset == null || checksumBuilder == null) {
+            throw new WalkerException("Charset and FileChecksumBuilder must be not null");
         }
 
+        this.fileChecksum = checksumBuilder;
         this.charset = charset;
     }
 
@@ -49,12 +44,23 @@ public abstract class BaseWalker {
     }
 
     public void walk() throws WalkerException {
+        final Path parent = this.output.getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException ignored) {
+            }
+        }
+
         try (final BufferedReader inputReader = Files.newBufferedReader(input, charset)) {
-            try (
-                    final BufferedWriter outputWriter = Files.newBufferedWriter(output, charset)) {
+            try (final BufferedWriter outputWriter = Files.newBufferedWriter(output, charset)) {
                 String line;
                 while ((line = readInputFileLine(inputReader)) != null) {
-                    process(line, fileChecksum, outputWriter);
+                    try {
+                        process(Path.of(line), fileChecksum, outputWriter);
+                    } catch (InvalidPathException e) {
+                        writeString(outputWriter, fileChecksum.getEmptyStringChecksum() + " " + line);
+                    }
                 }
             } catch (final IOException | SecurityException e) {
                 throw new WalkerException("Unable to write data to output file: " + e.getMessage(), e);
@@ -72,7 +78,7 @@ public abstract class BaseWalker {
         }
     }
 
-    protected abstract void process(String line, FileChecksumBuilder fileChecksum, BufferedWriter writer) throws IOException;
+    protected abstract void process(Path line, FileChecksumBuilder fileChecksum, BufferedWriter writer) throws IOException;
 
     protected static void writeString(final BufferedWriter writer, final String data) throws IOException {
         writer.write(data);

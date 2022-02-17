@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 
 public class BaseWalk {
-
     private static final String HASH_ALGORITHM_NAME = "SHA-1";
     private static final Charset CHARSET = StandardCharsets.UTF_8;
 
@@ -20,14 +19,15 @@ public class BaseWalk {
         }
 
         try {
+            FileChecksumBuilder fileChecksumBuilder = new FileChecksumBuilder(HASH_ALGORITHM_NAME);
             BaseWalker walker;
             if (recursive) {
-                walker = new RecursiveWalker(args[0], args[1], CHARSET, HASH_ALGORITHM_NAME);
+                walker = new RecursiveWalker(args[0], args[1], CHARSET, fileChecksumBuilder);
             } else {
-                walker = new SimpleWalker(args[0], args[1], CHARSET, HASH_ALGORITHM_NAME);
+                walker = new SimpleWalker(args[0], args[1], CHARSET, fileChecksumBuilder);
             }
             walker.walk();
-        } catch (final WalkerException | NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException | WalkerException e) {
             System.out.println(e.getMessage());
         }
     }

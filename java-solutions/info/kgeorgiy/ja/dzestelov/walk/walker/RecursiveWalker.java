@@ -8,23 +8,16 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.security.NoSuchAlgorithmException;
 
 public class RecursiveWalker extends BaseWalker {
 
-    public RecursiveWalker(String inputFile, String outputFile, Charset charset, String hashAlgorithmName) throws WalkerException, NoSuchAlgorithmException {
-        super(inputFile, outputFile, charset, hashAlgorithmName);
+    public RecursiveWalker(String inputFile, String outputFile, Charset charset, FileChecksumBuilder checksumBuilder) throws WalkerException {
+        super(inputFile, outputFile, charset, checksumBuilder);
     }
 
     @Override
-    protected void process(String line, FileChecksumBuilder fileChecksum, BufferedWriter writer) throws IOException {
-        try {
-            FileVisitor fileVisitor = new FileVisitor(fileChecksum, writer);
-            Files.walkFileTree(Path.of(line), fileVisitor);
-        } catch (InvalidPathException e) {
-            writeString(writer, FileChecksumBuilder.getEmptyStringChecksum() + " " + line);
-        }
+    protected void process(Path line, FileChecksumBuilder fileChecksum, BufferedWriter writer) throws IOException {
+        Files.walkFileTree(line, new FileVisitor(fileChecksum, writer));
     }
 }
