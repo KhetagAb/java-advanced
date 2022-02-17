@@ -1,8 +1,7 @@
-package info.kgeorgiy.ja.dzestelov.walk.visitor;
+package info.kgeorgiy.ja.dzestelov.walk;
 
-import info.kgeorgiy.ja.dzestelov.walk.FileChecksumBuilder;
-
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
