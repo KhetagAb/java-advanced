@@ -41,7 +41,7 @@ public abstract class BaseWalker {
 
     public void walk(final FileChecksumBuilder fileChecksum) throws WalkerException {
         if (fileChecksum == null) {
-            throw new NullPointerException("File visitor and checksum builder must be not null");
+            throw new NullPointerException("Checksum builder must be not null");
         }
 
         final Path parent = this.output.getParent();
