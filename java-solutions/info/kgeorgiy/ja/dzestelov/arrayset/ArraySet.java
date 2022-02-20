@@ -4,7 +4,7 @@ import java.util.*;
 
 public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
-    private final List<E> elements;
+    private final ViewArrayList elements;
     private final Comparator<? super E> comparator;
 
     public ArraySet() {
@@ -23,13 +23,15 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         this(sortedSet.toArray(), sortedSet.comparator());
     }
 
-    private ArraySet(final List<E> elements, Comparator<? super E> comparator) {
-        this.elements = elements;
+    private NavigableSet<E> descendingView = null;
+
+    private ArraySet(final ViewArrayList view, boolean isDescending, Comparator<? super E> comparator) {
+        this.elements = new ViewArrayList(view.elements, view.isDescending ^ isDescending);
         this.comparator = comparator;
     }
 
-    private ArraySet(final Object[] sortedArray, Comparator<? super E> comparator) {
-        elements = (List<E>) List.of(sortedArray);
+    private ArraySet(final List<E> elements, Comparator<? super E> comparator) {
+        this.elements = new ViewArrayList(elements, false);
         this.comparator = comparator;
     }
 
@@ -103,8 +105,6 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     public SortedSet<E> subSet(E fromElement, E toElement) {
         return subSet(fromElement, true, toElement, false);
     }
-
-    private NavigableSet<E> descendingView = null;
 
     private ArraySet<E> emptyList() {
         return new ArraySet<>(List.of(), comparator);
@@ -213,9 +213,24 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         }
     }
 
+    private ArraySet(final Object[] sortedArray, Comparator<? super E> comparator) {
+        elements = new ViewArrayList((List<E>) List.of(sortedArray), false);
+        this.comparator = comparator;
+    }
+
     @Override
     public NavigableSet<E> descendingSet() {
-        return (descendingView != null ? descendingView : (descendingView = new ViewArraySet<>(this, true)));
+        if (descendingView != null) {
+            return descendingView;
+        } else {
+            Comparator<? super E> comparator;
+            if (this.comparator != null) {
+                comparator = this.comparator.reversed();
+            } else {
+                comparator = Collections.reverseOrder();
+            }
+            return descendingView = new ArraySet<>(elements, true, comparator);
+        }
     }
 
     @Override
@@ -223,16 +238,28 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         return (descendingView != null ? descendingView.iterator() : descendingSet().iterator());
     }
 
-    static class ViewArraySet<E> extends ArraySet<E> implements NavigableSet<E> {
+    private class ViewArrayList extends AbstractList<E> implements List<E> {
 
-        private final ArraySet<E> arraySet;
+        private final List<E> elements;
         private final boolean isDescending;
 
-        ViewArraySet(ArraySet<E> arraySet, boolean isDescending) {
-            this.arraySet = arraySet;
+        ViewArrayList(List<E> elements, boolean isDescending) {
+            this.elements = elements;
             this.isDescending = isDescending;
         }
 
+        @Override
+        public E get(int index) {
+            if (isDescending) {
+                return elements.get(elements.size() - 1 - index);
+            } else {
+                return elements.get(index);
+            }
+        }
 
+        @Override
+        public int size() {
+            return elements.size();
+        }
     }
 }
