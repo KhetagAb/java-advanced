@@ -11,7 +11,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         this(new Object[0], null);
     }
 
-    public ArraySet(final Collection<? extends E> collection) {
+    public ArraySet(final Collection<? extends Comparable<? super E>> collection) {
         this(toArray(collection, null), null);
     }
 
@@ -23,7 +23,11 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         this(sortedSet.toArray(), sortedSet.comparator());
     }
 
-    @SuppressWarnings("unchecked")
+    private ArraySet(final List<E> elements, Comparator<? super E> comparator) {
+        this.elements = elements;
+        this.comparator = comparator;
+    }
+
     private ArraySet(final Object[] sortedArray, Comparator<? super E> comparator) {
         elements = (List<E>) List.of(sortedArray);
         this.comparator = comparator;
@@ -35,24 +39,59 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         return es.toArray();
     }
 
+    private int lowerIndex(E t) {
+        //        int i = Collections.binarySearch(elements, Objects.requireNonNull(t), comparator);
+        //        return get(i >= 0 ? i - 1 : -i - 2);
+
+        return getIndex(t, -1, -1);
+    }
+
+    private int floorIndex(E t) {
+        //        int i = Collections.binarySearch(elements, Objects.requireNonNull(t), comparator);
+        //        return get(i >= 0 ? i : -i - 1);
+
+        return getIndex(t, 0, -1);
+    }
+
+    private int ceilingIndex(E t) {
+        //        int i = Collections.binarySearch(elements, Objects.requireNonNull(t), comparator);
+        //        return get(i >= 0 ? i : -i - 1);
+        return getIndex(t, 0, 0);
+    }
+
+    private int higherIndex(E t) {
+        //        int i = Collections.binarySearch(elements, Objects.requireNonNull(t), comparator);
+        //        return get(i >= 0 ? i + 1 : -i - 1);
+        return getIndex(t, 1, 0);
+    }
+
     @Override
     public E lower(E t) {
-        return null;
+        return getOrNull(lowerIndex(t));
     }
 
     @Override
     public E floor(E t) {
-        return null;
+        return getOrNull(floorIndex(t));
     }
 
     @Override
     public E ceiling(E t) {
-        return null;
+        return getOrNull(ceilingIndex(t));
     }
 
     @Override
     public E higher(E t) {
-        return null;
+        return getOrNull(higherIndex(t));
+    }
+
+    private int getIndex(E t, int inRangeDelta, int outOfRangeDelta) {
+        int i = Collections.binarySearch(elements, Objects.requireNonNull(t), comparator);
+        return i >= 0 ? i + inRangeDelta : -i - 1 + outOfRangeDelta;
+    }
+
+    private E getOrNull(int i) {
+        return 0 <= i && i < elements.size() ? elements.get(i) : null;
     }
 
     @Override
@@ -62,14 +101,12 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public boolean contains(Object o) {
-        if (o == null) {
-            return false;
-        } else return Collections.binarySearch(elements, (E) o, comparator) > 0;
+        return Collections.binarySearch(elements, (E) Objects.requireNonNull(o), comparator) >= 0;
     }
 
     @Override
     public Iterator<E> iterator() {
-        return null;
+        return elements.iterator();
     }
 
     @Override
@@ -84,32 +121,34 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public NavigableSet<E> subSet(E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) {
-        return null;
+        int from = fromInclusive ? ceilingIndex(fromElement) : higherIndex(fromElement);
+        int to = toInclusive ? floorIndex(toElement) : lowerIndex(toElement);
+        return new ArraySet<>(elements.subList(from, to), comparator);
     }
 
     @Override
     public NavigableSet<E> headSet(E toElement, boolean inclusive) {
-        return null;
+        return subSet(first(), true, toElement, inclusive);
     }
 
     @Override
     public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
-        return null;
+        return subSet(fromElement, inclusive, last(), true);
     }
 
     @Override
     public SortedSet<E> subSet(E fromElement, E toElement) {
-        return null;
+        return subSet(fromElement, true, toElement, false);
     }
 
     @Override
     public SortedSet<E> headSet(E toElement) {
-        return null;
+        return headSet(toElement, false);
     }
 
     @Override
     public SortedSet<E> tailSet(E fromElement) {
-        return null;
+        return tailSet(fromElement, true);
     }
 
     @Override
@@ -154,6 +193,6 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public void clear() {
-        throw new UnsupportedOperationException("Unable to clear  ArraySet");
+        throw new UnsupportedOperationException("Unable to clear ArraySet");
     }
 }
