@@ -4,7 +4,7 @@ import java.util.*;
 
 public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
-    private final ViewArrayList elements;
+    private final ViewList<E> elements;
     private final Comparator<? super E> comparator;
 
     public ArraySet() {
@@ -25,13 +25,8 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     private NavigableSet<E> descendingView = null;
 
-    private ArraySet(final ViewArrayList view, boolean isDescending, Comparator<? super E> comparator) {
-        this.elements = new ViewArrayList(view.elements, view.isDescending ^ isDescending);
-        this.comparator = comparator;
-    }
-
-    private ArraySet(final List<E> elements, Comparator<? super E> comparator) {
-        this.elements = new ViewArrayList(elements, false);
+    private ArraySet(final ViewList<E> view, final Comparator<? super E> comparator) {
+        this.elements = view;
         this.comparator = comparator;
     }
 
@@ -106,18 +101,24 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         return subSet(fromElement, true, toElement, false);
     }
 
-    private ArraySet<E> emptyList() {
-        return new ArraySet<>(List.of(), comparator);
-    }
-
     @Override
     public SortedSet<E> headSet(E toElement) {
         return headSet(toElement, false);
     }
 
+    private ArraySet(final Object[] sortedArray, final Comparator<? super E> comparator) {
+        this.elements = new ViewList<>((E[]) sortedArray);
+        this.comparator = comparator;
+    }
+
+    @Override
+    public SortedSet<E> tailSet(E fromElement) {
+        return tailSet(fromElement, true);
+    }
+
     @Override
     public NavigableSet<E> subSet(E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) {
-        if (!compare(fromElement, toElement)) {
+        if (isInvalidRange(fromElement, toElement)) {
             throw new IllegalArgumentException("fromElement > toElement");
         }
 
@@ -127,29 +128,16 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         if (from > to) {
             return emptyList();
         } else {
-            return new ArraySet<>(elements.subList(from, to + 1), comparator);
+            return new ArraySet<>(new ViewList<>(elements, from, to + 1), comparator);
         }
-    }
-
-    @Override
-    public SortedSet<E> tailSet(E fromElement) {
-        return tailSet(fromElement, true);
     }
 
     @Override
     public NavigableSet<E> headSet(E toElement, boolean inclusive) {
-        if (isEmpty() || !compare(first(), toElement)) {
+        if (isEmpty() || isInvalidRange(first(), toElement)) {
             return emptyList();
         }
         return subSet(first(), true, toElement, inclusive);
-    }
-
-    @Override
-    public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
-        if (isEmpty() || !compare(fromElement, last())) {
-            return emptyList();
-        }
-        return subSet(fromElement, inclusive, last(), true);
     }
 
     @Override
@@ -173,6 +161,18 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         }
 
         return elements.get(elements.size() - 1);
+    }
+
+    @Override
+    public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
+        if (isEmpty() || isInvalidRange(fromElement, last())) {
+            return emptyList();
+        }
+        return subSet(fromElement, inclusive, last(), true);
+    }
+
+    private ArraySet<E> emptyList() {
+        return new ArraySet<>(new Object[0], comparator);
     }
 
     @Override
@@ -205,32 +205,20 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         throw new UnsupportedOperationException("Unable to clear ArraySet");
     }
 
-    private boolean compare(E from, E to) {
+    private boolean isInvalidRange(E from, E to) {
         if (comparator != null) {
-            return comparator.compare(from, to) <= 0;
+            return comparator.compare(from, to) > 0;
         } else {
-            return ((Comparable<? super E>) from).compareTo(to) <= 0;
+            return ((Comparable<? super E>) from).compareTo(to) > 0;
         }
-    }
-
-    private ArraySet(final Object[] sortedArray, Comparator<? super E> comparator) {
-        elements = new ViewArrayList((List<E>) List.of(sortedArray), false);
-        this.comparator = comparator;
     }
 
     @Override
     public NavigableSet<E> descendingSet() {
-        if (descendingView != null) {
-            return descendingView;
-        } else {
-            Comparator<? super E> comparator;
-            if (this.comparator != null) {
-                comparator = this.comparator.reversed();
-            } else {
-                comparator = Collections.reverseOrder();
-            }
-            return descendingView = new ArraySet<>(elements, true, comparator);
+        if (descendingView == null) {
+            descendingView = new ArraySet<>(new ViewList<>(elements, true), Collections.reverseOrder(this.comparator));
         }
+        return descendingView;
     }
 
     @Override
@@ -238,28 +226,47 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         return (descendingView != null ? descendingView.iterator() : descendingSet().iterator());
     }
 
-    private class ViewArrayList extends AbstractList<E> implements List<E> {
 
-        private final List<E> elements;
+    static class ViewList<E> extends AbstractList<E> implements RandomAccess {
+
+        private final E[] elements;
+        private final int from, to;
         private final boolean isDescending;
 
-        ViewArrayList(List<E> elements, boolean isDescending) {
+        private ViewList(E[] elements) {
             this.elements = elements;
-            this.isDescending = isDescending;
+            this.from = 0;
+            this.to = elements.length;
+            this.isDescending = false;
+        }
+
+        private ViewList(ViewList<E> elements, boolean isDescending) {
+            this(elements, elements.from, elements.to, isDescending);
+        }
+
+        private ViewList(ViewList<E> elements, int from, int to) {
+            this(elements, from, to, elements.isDescending);
+        }
+
+        private ViewList(ViewList<E> elements, int from, int to, boolean isDescending) {
+            this.elements = elements.elements;
+            this.from = elements.from + from;
+            this.to = elements.from + to;
+            this.isDescending = elements.isDescending ^ isDescending;
         }
 
         @Override
         public E get(int index) {
             if (isDescending) {
-                return elements.get(elements.size() - 1 - index);
+                return elements[to - 1 - index];
             } else {
-                return elements.get(index);
+                return elements[from + index];
             }
         }
 
         @Override
         public int size() {
-            return elements.size();
+            return to - from;
         }
     }
 }
