@@ -73,7 +73,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     }
 
     private int getIndex(E t, int inRangeDelta, int outOfRangeDelta) {
-        int i = Collections.binarySearch(elements, Objects.requireNonNull(t), comparator);
+        int i = Collections.binarySearch(elements, t, comparator);
         return i >= 0 ? i + inRangeDelta : -i - 1 + outOfRangeDelta;
     }
 
@@ -110,7 +110,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     @Override
     @SuppressWarnings("unchecked")
     public boolean contains(Object o) {
-        return Collections.binarySearch(elements, (E) Objects.requireNonNull(o), comparator) >= 0;
+        return Collections.binarySearch(elements, (E) o, comparator) >= 0;
     }
 
     @Override
@@ -120,9 +120,6 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public NavigableSet<E> subSet(E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) {
-        Objects.requireNonNull(fromElement);
-        Objects.requireNonNull(toElement);
-
         if (isInvalidRange(fromElement, toElement)) {
             throw new IllegalArgumentException("fromElement > toElement");
         }
@@ -237,37 +234,37 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
         private final E[] elements;
         private final int from, to;
-        private final boolean isDescending;
+        private final boolean isReversed;
 
         private ViewList(E[] elements) {
             this.elements = elements;
             this.from = 0;
             this.to = elements.length;
-            this.isDescending = false;
+            this.isReversed = false;
         }
 
-        private ViewList(ViewList<E> elements, boolean isDescending) {
+        private ViewList(ViewList<E> elements, boolean isReversed) {
             this.elements = elements.elements;
             this.from = elements.from;
             this.to = elements.to;
-            this.isDescending = elements.isDescending ^ isDescending;
+            this.isReversed = elements.isReversed ^ isReversed;
         }
 
         private ViewList(ViewList<E> elements, int from, int to) {
             this.elements = elements.elements;
-            if (elements.isDescending) {
+            if (elements.isReversed) {
                 this.from = elements.from + elements.size() - to;
                 this.to = elements.to - from;
             } else {
                 this.from = elements.from + from;
                 this.to = elements.from + to;
             }
-            this.isDescending = elements.isDescending;
+            this.isReversed = elements.isReversed;
         }
 
         @Override
         public E get(int index) {
-            if (isDescending) {
+            if (isReversed) {
                 return elements[to - 1 - index];
             } else {
                 return elements[from + index];
