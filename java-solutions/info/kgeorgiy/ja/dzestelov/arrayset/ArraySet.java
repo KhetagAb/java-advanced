@@ -86,9 +86,10 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         return elements.size();
     }
 
-    @Override
-    public boolean contains(Object o) {
-        return Collections.binarySearch(elements, (E) Objects.requireNonNull(o), comparator) >= 0;
+    @SuppressWarnings("unchecked")
+    private ArraySet(final Object[] sortedArray, final Comparator<? super E> comparator) {
+        this.elements = new ViewList<>((E[]) sortedArray);
+        this.comparator = comparator;
     }
 
     @Override
@@ -106,9 +107,10 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         return headSet(toElement, false);
     }
 
-    private ArraySet(final Object[] sortedArray, final Comparator<? super E> comparator) {
-        this.elements = new ViewList<>((E[]) sortedArray);
-        this.comparator = comparator;
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean contains(Object o) {
+        return Collections.binarySearch(elements, (E) Objects.requireNonNull(o), comparator) >= 0;
     }
 
     @Override
@@ -208,6 +210,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         throw new UnsupportedOperationException("Unable to clear ArraySet");
     }
 
+    @SuppressWarnings("unchecked")
     private boolean isInvalidRange(E from, E to) {
         if (comparator != null) {
             return comparator.compare(from, to) > 0;
