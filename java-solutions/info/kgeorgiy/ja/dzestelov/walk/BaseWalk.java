@@ -19,8 +19,7 @@ public abstract class BaseWalk {
         }
 
         try {
-            BaseWalker walker = getWalker(args[0], args[1], CHARSET);
-            walker.walk(new FileChecksumBuilder(HASH_ALGORITHM_NAME));
+            getWalker(args[0], args[1], CHARSET).walk(new FileChecksumBuilder(HASH_ALGORITHM_NAME));
         } catch (NoSuchAlgorithmException | WalkerException | NullPointerException e) {
             System.out.println(e.getMessage());
         }

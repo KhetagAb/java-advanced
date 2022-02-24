@@ -15,24 +15,25 @@ public class FileChecksumBuilder {
 
     private final MessageDigest messageDigest;
 
-    public FileChecksumBuilder(String hashAlgorithmName) throws NoSuchAlgorithmException {
+    public FileChecksumBuilder(final String hashAlgorithmName) throws NoSuchAlgorithmException {
         messageDigest = MessageDigest.getInstance(hashAlgorithmName);
     }
 
-    public String getStringChecksum(Path path) {
+    public String getStringChecksum(final Path path) {
         return toString(getChecksum(path));
     }
 
-    public byte[] getChecksum(Path path) {
-        try (InputStream inputStream = Files.newInputStream(path)) {
+    public byte[] getChecksum(final Path path) {
+        try (final InputStream inputStream = Files.newInputStream(path)) {
+            messageDigest.reset();
             int read;
+            // :NOTE: Переиспользовать
             final byte[] buff = new byte[BUFFER_SIZE];
             while ((read = inputStream.read(buff)) != -1) {
                 messageDigest.update(buff, 0, read);
             }
             return messageDigest.digest();
-        } catch (IOException e) {
-            messageDigest.reset();
+        } catch (final IOException e) {
             return getEmptyChecksum();
         }
     }
@@ -41,11 +42,11 @@ public class FileChecksumBuilder {
         return toString(getEmptyChecksum());
     }
 
-    public byte[] getEmptyChecksum() {
+    public static byte[] getEmptyChecksum() {
         return new byte[EMPTY_CHECKSUM_SIZE];
     }
 
-    private String toString(byte[] bytes) {
+    private String toString(final byte[] bytes) {
         return HexFormat.of().formatHex(bytes);
     }
 }

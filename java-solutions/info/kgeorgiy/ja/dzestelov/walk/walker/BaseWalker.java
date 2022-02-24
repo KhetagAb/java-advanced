@@ -1,7 +1,7 @@
 package info.kgeorgiy.ja.dzestelov.walk.walker;
 
 import info.kgeorgiy.ja.dzestelov.walk.FileChecksumBuilder;
-import info.kgeorgiy.ja.dzestelov.walk.FileVisitor;
+import info.kgeorgiy.ja.dzestelov.walk.HashFileVisitor;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -31,9 +31,9 @@ public abstract class BaseWalker {
         this.charset = charset;
     }
 
-    private static Path getPath(final String fileNAme, final String name) throws WalkerException {
+    private static Path getPath(final String fileName, final String name) throws WalkerException {
         try {
-            return Path.of(fileNAme);
+            return Path.of(fileName);
         } catch (final InvalidPathException e) {
             throw new WalkerException("Invalid " + name + " file name: " + e.getMessage(), e);
         }
@@ -55,7 +55,7 @@ public abstract class BaseWalker {
 
         try (final BufferedReader inputReader = Files.newBufferedReader(input, charset)) {
             try (final BufferedWriter outputWriter = Files.newBufferedWriter(output, charset)) {
-                FileVisitor fileVisitor = getFileVisitor(outputWriter, fileChecksum);
+                final HashFileVisitor fileVisitor = getFileVisitor(outputWriter, fileChecksum);
 
                 String line;
                 while ((line = readInputFileLine(inputReader)) != null) {
@@ -73,7 +73,7 @@ public abstract class BaseWalker {
         }
     }
 
-    protected abstract FileVisitor getFileVisitor(BufferedWriter outputWriter, FileChecksumBuilder fileChecksum);
+    protected abstract HashFileVisitor getFileVisitor(BufferedWriter outputWriter, FileChecksumBuilder fileChecksum);
 
     private String readInputFileLine(final BufferedReader bufferedReader) throws WalkerException {
         try {

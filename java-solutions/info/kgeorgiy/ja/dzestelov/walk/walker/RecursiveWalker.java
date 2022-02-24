@@ -1,7 +1,7 @@
 package info.kgeorgiy.ja.dzestelov.walk.walker;
 
 import info.kgeorgiy.ja.dzestelov.walk.FileChecksumBuilder;
-import info.kgeorgiy.ja.dzestelov.walk.FileVisitor;
+import info.kgeorgiy.ja.dzestelov.walk.HashFileVisitor;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -16,8 +16,8 @@ public class RecursiveWalker extends BaseWalker {
     }
 
     @Override
-    protected FileVisitor getFileVisitor(BufferedWriter outputWriter, FileChecksumBuilder fileChecksum) {
-        return new FileVisitor(outputWriter, fileChecksum) {
+    protected HashFileVisitor getFileVisitor(BufferedWriter outputWriter, FileChecksumBuilder fileChecksum) {
+        return new HashFileVisitor(outputWriter, fileChecksum) {
             @Override
             public FileVisitResult postVisitDirectory(final Path dir, final IOException exc) {
                 return FileVisitResult.CONTINUE;

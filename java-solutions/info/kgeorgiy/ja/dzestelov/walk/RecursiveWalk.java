@@ -13,7 +13,7 @@ public class RecursiveWalk extends BaseWalk {
     }
 
     @Override
-    protected BaseWalker getWalker(String input, String output, Charset charset) throws WalkerException {
+    protected BaseWalker getWalker(final String input, final String output, final Charset charset) throws WalkerException {
         return new RecursiveWalker(input, output, charset);
     }
 }
