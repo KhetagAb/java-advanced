@@ -19,14 +19,16 @@ public abstract class HashFileVisitor extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
-        // :NOTE: CP
-        writeString(checksumBuilder.getStringChecksum(file) + " " + file);
-        return FileVisitResult.CONTINUE;
+        return writeString(checksumBuilder.getStringChecksum(file), file);
     }
 
     @Override
     public FileVisitResult visitFileFailed(final Path file, final IOException exc) throws IOException {
-        writeString(checksumBuilder.getEmptyStringChecksum() + " " + file);
+        return writeString(checksumBuilder.getEmptyStringChecksum(), file);
+    }
+
+    protected FileVisitResult writeString(final String string, final Path file) throws IOException {
+        writeString(string + " " + file);
         return FileVisitResult.CONTINUE;
     }
 

@@ -12,6 +12,7 @@ public class FileChecksumBuilder {
 
     private static final int EMPTY_CHECKSUM_SIZE = 20;
     private static final int BUFFER_SIZE = 1 << 16;
+    private static final byte[] buffer = new byte[BUFFER_SIZE];
 
     private final MessageDigest messageDigest;
 
@@ -27,10 +28,8 @@ public class FileChecksumBuilder {
         try (final InputStream inputStream = Files.newInputStream(path)) {
             messageDigest.reset();
             int read;
-            // :NOTE: Переиспользовать
-            final byte[] buff = new byte[BUFFER_SIZE];
-            while ((read = inputStream.read(buff)) != -1) {
-                messageDigest.update(buff, 0, read);
+            while ((read = inputStream.read(buffer)) != -1) {
+                messageDigest.update(buffer, 0, read);
             }
             return messageDigest.digest();
         } catch (final IOException e) {
