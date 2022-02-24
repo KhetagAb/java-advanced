@@ -118,6 +118,9 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public NavigableSet<E> subSet(E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) {
+        Objects.requireNonNull(fromElement);
+        Objects.requireNonNull(toElement);
+
         if (isInvalidRange(fromElement, toElement)) {
             throw new IllegalArgumentException("fromElement > toElement");
         }
@@ -241,18 +244,22 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         }
 
         private ViewList(ViewList<E> elements, boolean isDescending) {
-            this(elements, elements.from, elements.to, isDescending);
+            this.elements = elements.elements;
+            this.from = elements.from;
+            this.to = elements.to;
+            this.isDescending = elements.isDescending ^ isDescending;
         }
 
         private ViewList(ViewList<E> elements, int from, int to) {
-            this(elements, from, to, elements.isDescending);
-        }
-
-        private ViewList(ViewList<E> elements, int from, int to, boolean isDescending) {
             this.elements = elements.elements;
-            this.from = elements.from + from;
-            this.to = elements.from + to;
-            this.isDescending = elements.isDescending ^ isDescending;
+            if (elements.isDescending) {
+                this.from = elements.from + elements.size() - to;
+                this.to = elements.to - from;
+            } else {
+                this.from = elements.from + from;
+                this.to = elements.from + to;
+            }
+            this.isDescending = elements.isDescending;
         }
 
         @Override
