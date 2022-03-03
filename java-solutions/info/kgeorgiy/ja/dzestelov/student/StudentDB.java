@@ -48,13 +48,6 @@ public class StudentDB implements AdvancedQuery {
 
     }
 
-    private GroupName getLargestGroupBy(Collection<Student> students, Comparator<Map.Entry<GroupName, List<Student>>> comparator) {
-        return getCollectedStream(students, Collectors.groupingBy(Student::getGroup))
-                .max(comparator)
-                .map(Map.Entry::getKey)
-                .orElse(null);
-    }
-
     @Override
     public GroupName getLargestGroup(Collection<Student> students) {
         return getLargestGroupBy(students,
@@ -165,15 +158,28 @@ public class StudentDB implements AdvancedQuery {
                         BinaryOperator.minBy(String::compareTo)));
     }
 
+    public <T, C> Optional<T> getByComparatorWithCollector(Collection<Student> students,
+                                                           Collector<Student, ?, Map<T, C>> collector,
+                                                           Comparator<Map.Entry<T, C>> comparator) {
+        return students.stream()
+                .collect(collector)
+                .entrySet()
+                .stream()
+                .max(comparator)
+                .map(Map.Entry::getKey);
+    }
+
+
+    private GroupName getLargestGroupBy(Collection<Student> students, Comparator<Map.Entry<GroupName, List<Student>>> comparator) {
+        return getByComparatorWithCollector(students, Collectors.groupingBy(Student::getGroup), comparator).orElse(null);
+    }
+
     @Override
     public String getMostPopularName(Collection<Student> students) {
-        return students.stream()
-                .collect(Collectors.groupingBy(Student::getFirstName, Collectors.groupingBy(Student::getGroup)))
-                .entrySet().stream()
-                .max(Map.Entry.<String, Map<GroupName, List<Student>>>comparingByValue(Comparator.comparing(Map::size))
-                        .thenComparing(Map.Entry::getKey))
-                .map(Map.Entry::getKey)
-                .orElse("");
+        return getByComparatorWithCollector(students,
+                Collectors.groupingBy(Student::getFirstName, Collectors.groupingBy(Student::getGroup)),
+                Map.Entry.<String, Map<GroupName, List<Student>>>comparingByValue(Comparator.comparing(Map::size))
+                        .thenComparing(Map.Entry::getKey)).orElse("");
     }
 
     private <T> List<T> getByIndices(List<Student> students, Function<? super Student, ? extends T> mapper, int[] indices) {
