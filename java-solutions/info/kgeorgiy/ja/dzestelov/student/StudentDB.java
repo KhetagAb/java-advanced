@@ -24,7 +24,7 @@ public class StudentDB implements AdvancedQuery {
 
     private final Function<Student, String> FULL_NAME = student -> student.getFirstName() + " " + student.getLastName();
 
-    private <K> Stream<Map.Entry<K, List<Student>>> getCollectedStream(Collection<Student> students, Collector<Student, ?, Map<K, List<Student>>> collector) {
+    private <T, C> Stream<Map.Entry<T, C>> getCollectedStream(Collection<Student> students, Collector<Student, ?, Map<T, C>> collector) {
         return students.stream()
                 .collect(collector)
                 .entrySet().stream();
@@ -161,10 +161,7 @@ public class StudentDB implements AdvancedQuery {
     public <T, C> Optional<T> getByComparatorWithCollector(Collection<Student> students,
                                                            Collector<Student, ?, Map<T, C>> collector,
                                                            Comparator<Map.Entry<T, C>> comparator) {
-        return students.stream()
-                .collect(collector)
-                .entrySet()
-                .stream()
+        return getCollectedStream(students, collector)
                 .max(comparator)
                 .map(Map.Entry::getKey);
     }
