@@ -159,13 +159,10 @@ public class StudentDB implements AdvancedQuery {
     @Override
     public Map<String, String> findStudentNamesByGroup(Collection<Student> students, GroupName group) {
         return filteredStreamByField(students, Student::getGroup, group)
-                .collect(
-                        Collectors.toMap(
-                                Student::getLastName,
-                                Student::getFirstName,
-                                BinaryOperator.minBy(String::compareTo)
-                        )
-                );
+                .collect(Collectors.toMap(
+                        Student::getLastName,
+                        Student::getFirstName,
+                        BinaryOperator.minBy(String::compareTo)));
     }
 
     @Override
@@ -180,7 +177,10 @@ public class StudentDB implements AdvancedQuery {
     }
 
     private <T> List<T> getByIndices(List<Student> students, Function<? super Student, ? extends T> mapper, int[] indices) {
-        return Arrays.stream(indices).mapToObj(students::get).map(mapper).collect(Collectors.toList());
+        return Arrays.stream(indices)
+                .mapToObj(students::get)
+                .map(mapper)
+                .collect(Collectors.toList());
     }
 
     private <T> List<T> getByIndices(Collection<Student> students, Function<? super Student, ? extends T> mapper, int[] indices) {
