@@ -120,7 +120,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public NavigableSet<E> subSet(E fromElement, boolean fromInclusive, E toElement, boolean toInclusive) {
-        if (isInvalidRange(fromElement, toElement)) {
+        if (compare(fromElement, toElement) > 0) {
             throw new IllegalArgumentException("fromElement > toElement");
         }
 
@@ -136,7 +136,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public NavigableSet<E> headSet(E toElement, boolean inclusive) {
-        if (isEmpty() || isInvalidRange(first(), toElement)) {
+        if (isEmpty() || compare(first(), toElement) > 0) {
             return emptyList();
         }
         return subSet(first(), true, toElement, inclusive);
@@ -167,7 +167,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
-        if (isEmpty() || isInvalidRange(fromElement, last())) {
+        if (isEmpty() || compare(fromElement, last()) > 0) {
             return emptyList();
         }
         return subSet(fromElement, inclusive, last(), true);
@@ -208,11 +208,11 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     }
 
     @SuppressWarnings("unchecked")
-    private boolean isInvalidRange(E from, E to) {
+    private int compare(E from, E to) {
         if (comparator != null) {
-            return comparator.compare(from, to) > 0;
+            return comparator.compare(from, to);
         } else {
-            return ((Comparable<? super E>) from).compareTo(to) > 0;
+            return ((Comparable<? super E>) from).compareTo(to);
         }
     }
 
