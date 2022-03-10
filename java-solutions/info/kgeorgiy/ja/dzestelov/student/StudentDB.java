@@ -158,9 +158,9 @@ public class StudentDB implements AdvancedQuery {
                         BinaryOperator.minBy(String::compareTo)));
     }
 
-    public <T, C> Optional<T> getByComparatorWithCollector(Collection<Student> students,
-                                                           Collector<Student, ?, Map<T, C>> collector,
-                                                           Comparator<Map.Entry<T, C>> comparator) {
+    public <T, C> Optional<T> getCollectedByComparator(Collection<Student> students,
+                                                       Collector<Student, ?, Map<T, C>> collector,
+                                                       Comparator<Map.Entry<T, C>> comparator) {
         return getCollectedStream(students, collector)
                 .max(comparator)
                 .map(Map.Entry::getKey);
@@ -168,12 +168,12 @@ public class StudentDB implements AdvancedQuery {
 
 
     private GroupName getLargestGroupBy(Collection<Student> students, Comparator<Map.Entry<GroupName, List<Student>>> comparator) {
-        return getByComparatorWithCollector(students, Collectors.groupingBy(Student::getGroup), comparator).orElse(null);
+        return getCollectedByComparator(students, Collectors.groupingBy(Student::getGroup), comparator).orElse(null);
     }
 
     @Override
     public String getMostPopularName(Collection<Student> students) {
-        return getByComparatorWithCollector(students,
+        return getCollectedByComparator(students,
                 Collectors.groupingBy(Student::getFirstName, Collectors.groupingBy(Student::getGroup)),
                 Map.Entry.<String, Map<GroupName, List<Student>>>comparingByValue(Comparator.comparing(Map::size))
                         .thenComparing(Map.Entry::getKey)).orElse("");
