@@ -63,15 +63,8 @@ public class Implementor implements Impler {
 
         try (BufferedWriter writer = Files.newBufferedWriter(root)) {
             writePackage(writer, token);
-            writeClassName(writer, token);
 
-            openSection(writer);
-            if (!token.isInterface()) {
-                writeConstructors(writer, token);
-            }
-            writeAbstractMethods(writer, token);
-            closeSection(writer);
-
+            writeClass(writer, token);
         } catch (IOException e) {
             throw new ImplerException("Cannot write java file to " + root);
         }
@@ -83,6 +76,21 @@ public class Implementor implements Impler {
             write(writer, "package " + pack + ";");
             writeLine(writer);
         }
+    }
+
+    private void writeClass(BufferedWriter writer, Class<?> token) throws IOException, ImplerException {
+        writeLine(writer, getClassHead(token));
+        openSection(writer);
+        if (!token.isInterface()) {
+            writeConstructors(writer, token);
+        }
+        writeAbstractMethods(writer, token);
+        closeSection(writer);
+    }
+
+    private String getClassHead(Class<?> token) {
+        return "public class " + getClassName(token) + " " +
+                (token.isInterface() ? "implements " : "extends ") + token.getCanonicalName();
     }
 
     private void writeConstructors(BufferedWriter writer, Class<?> token) throws IOException, ImplerException {
@@ -97,39 +105,51 @@ public class Implementor implements Impler {
         }
 
         for (Constructor<?> constructor : token.getDeclaredConstructors()) {
-            writeLine(writer, getConstructor(constructor));
+            writeConstructor(writer, constructor);
         }
     }
 
-    private String getConstructor(Constructor<?> constructor) {
-        Section section = new Section(this.section);
-        appendConstructorName(section, constructor);
-        appendConstructorBody(section, constructor);
-        return section.toString();
+    private void writeConstructor(BufferedWriter writer, Constructor<?> constructor) throws IOException {
+        writeLine(writer);
+        writeLine(writer, getConstructorHead(constructor));
+        openSection(writer);
+        writeLine(writer, getConstructorBody(constructor));
+        closeSection(writer);
     }
 
-    private void appendConstructorBody(Section section, Constructor<?> constructor) {
-        section.openSection();
-        section.writeLine("super(" + getParams(constructor, false) + ");");
-        section.closeSection();
+    private String getConstructorHead(Constructor<?> constructor) {
+        return getModifier(constructor) + " " + getClassName(constructor.getDeclaringClass()) +
+                "(" + getParams(constructor, true) + ")" + getExceptions(constructor);
     }
 
-    private void appendConstructorName(Section section, Constructor<?> constructor) {
-        section.write(getModifier(constructor) + " " + getClassName(constructor.getDeclaringClass()) + " (" + getParams(constructor, true) + ")" + getExceptions(constructor));
+    private String getConstructorBody(Constructor<?> constructor) {
+        return "super(" + getParams(constructor, false) + ");";
     }
 
-    private void writeAbstractMethods(BufferedWriter writer, Class<?> token) throws IOException { // toDo
+    private void writeAbstractMethods(BufferedWriter writer, Class<?> token) throws IOException {
         HashSet<WrappedMethod> abstractMethods = new HashSet<>(getAbstractMethods(token.getMethods()));
-        HashSet<WrappedMethod> definedMethods = Arrays.stream(token.getMethods()).map(WrappedMethod::new).collect(Collectors.toCollection(HashSet::new));
+        HashSet<WrappedMethod> definedMethods = Arrays.stream(token.getMethods())
+                .filter(Predicate.not(IS_ABSTRACT))
+                .map(WrappedMethod::new)
+                .collect(Collectors.toCollection(HashSet::new));
 
         while (token != null) {
             abstractMethods.addAll(getAbstractMethods(token.getDeclaredMethods()));
             token = token.getSuperclass();
         }
 
+        abstractMethods.removeAll(definedMethods);
         for (WrappedMethod abstractMethod : abstractMethods) {
-            writeLine(writer, getAbstractMethod(abstractMethod.method));
+            writeAbstractMethod(writer, abstractMethod.method);
         }
+    }
+
+    private void writeAbstractMethod(BufferedWriter writer, Method method) throws IOException {
+        writeLine(writer);
+        writeLine(writer, getMethodHead(method));
+        openSection(writer);
+        writeLine(writer, getDefaultMethodBody(method));
+        closeSection(writer);
     }
 
     private List<WrappedMethod> getAbstractMethods(Method[] methods) {
@@ -139,32 +159,24 @@ public class Implementor implements Impler {
                 .collect(Collectors.toList());
     }
 
-    private String getAbstractMethod(Method method) {
-        Section section = new Section(this.section);
-        appendMethodName(section, method);
-        appendMethodBody(section, method);
-        return section.toString();
+    private String getMethodHead(Method method) {
+        return getModifier(method) + " " + getReturnTypeAndNameMethod(method) +
+                "(" + getParams(method, true) + ")" + getExceptions(method);
     }
 
-    private void appendMethodName(Section section, Method method) {
-        section.write(getModifier(method) + " " + getReturnTypeAndNameMethod(method) + " (" + getParams(method, true) + ")" + getExceptions(method));
-    }
-
-    private void appendMethodBody(Section section, Method method) {
-        section.openSection();
+    private String getDefaultMethodBody(Method method) {
+        String body = "return";
         Class<?> returnType = method.getReturnType();
-        section.writeLine("return");
-        if (returnType.equals(Boolean.TYPE)) {
-            section.write(" false");
-        } else if (returnType.equals(Void.TYPE)) {
-            section.write("");
+        if (returnType.equals(void.class)) {
+            return "";
+        } else if (returnType.equals(boolean.class)) {
+            body = body + " false";
         } else if (returnType.isPrimitive()) {
-            section.write(" 0");
+            body = body + " 0";
         } else {
-            section.write(" null");
+            body = body + " null";
         }
-        section.write(";");
-        section.closeSection();
+        return body + ";";
     }
 
     private String getReturnTypeAndNameMethod(Method method) {
@@ -187,7 +199,7 @@ public class Implementor implements Impler {
         Class<?>[] parameterTypes = executable.getParameterTypes();
         final int[] argN = {0};
         return Arrays.stream(parameterTypes)
-                .map(p -> (typeRequired ? p.getCanonicalName() + " " : "") + "args" + argN[0]++)
+                .map(p -> (typeRequired ? p.getCanonicalName() + " " : "") + "arg" + argN[0]++)
                 .collect(Collectors.joining(", "));
     }
 
@@ -196,12 +208,8 @@ public class Implementor implements Impler {
         return Modifier.toString(modifiers);
     }
 
-    private void writeClassName(BufferedWriter writer, Class<?> token) throws IOException {
-        writeLine(writer, "public class " + getClassName(token) + " " + (token.isInterface() ? "implements " : "extends ") + token.getCanonicalName());
-    }
-
     private void openSection(BufferedWriter writer) throws IOException {
-        writeLine(writer, "{");
+        write(writer, " {");
         section++;
     }
 
@@ -223,16 +231,11 @@ public class Implementor implements Impler {
         write(writer, TAB.repeat(section) + line);
     }
 
-    static class WrappedMethod {
-        private final Method method;
-
-        WrappedMethod(Method method) {
-            this.method = method;
-        }
+    record WrappedMethod(Method method) {
 
         @Override
         public int hashCode() {
-            return Objects.hashCode(method);
+            return Objects.hash(method.getName(), method.getReturnType(), Arrays.hashCode(method.getParameterTypes()));
         }
 
         @Override
@@ -246,41 +249,6 @@ public class Implementor implements Impler {
             } else {
                 return false;
             }
-        }
-    }
-
-    static class Section {
-        private final StringBuilder sb;
-        private int section;
-
-        Section(int section) {
-            this.section = section;
-            this.sb = new StringBuilder();
-        }
-
-        void openSection() {
-            writeLine("{");
-            section++;
-        }
-
-        private void closeSection() {
-            section--;
-            writeLine("}");
-        }
-
-        private Section write(String line) {
-            sb.append(line);
-            return this;
-        }
-
-        private Section writeLine(String line) {
-            sb.append(System.lineSeparator());
-            write(TAB.repeat(section) + line);
-            return this;
-        }
-
-        public String toString() {
-            return sb.toString();
         }
     }
 }
