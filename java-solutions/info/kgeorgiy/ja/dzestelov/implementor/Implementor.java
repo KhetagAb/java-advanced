@@ -20,7 +20,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import java.util.stream.Collectors;
 
 public class Implementor implements JarImpler {
@@ -49,10 +52,14 @@ public class Implementor implements JarImpler {
         return token.getSimpleName() + FILE_NAME_SUFFIX;
     }
 
-    private static Path getFile(Class<?> token) {
-        return Path.of(token.getPackageName().replace('.', File.separatorChar) + getClassName(token) + ".java");
-
+    private static Path getFileName(Class<?> token, String end) {
+        return Path.of(getClassName(token) + end);
     }
+
+    private static Path getFile(Class<?> token, String end) {
+        return Path.of(token.getPackageName().replace('.', File.separatorChar)).resolve(getFileName(token, end));
+    }
+
 
     public static void main(String[] args) {
         if (args == null || args.length < 2 || ("jar".equals(args[0]) && args.length < 3)) {
@@ -94,7 +101,7 @@ public class Implementor implements JarImpler {
     private static int compileFile(Class<?> token, Path root) throws ImplerException {
         try {
             final String classpath = root + File.pathSeparator + Path.of(token.getProtectionDomain().getCodeSource().getLocation().toURI());
-            final String[] args = new String[]{getFile(token, root).toString(), "-cp", classpath};
+            final String[] args = new String[]{root.resolve(getFile(token, ".java")).toString(), "-cp", classpath};
             final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             return compiler.run(null, null, null, args);
         } catch (URISyntaxException e) {
@@ -106,29 +113,35 @@ public class Implementor implements JarImpler {
     public void implementJar(Class<?> token, Path jarFile) throws ImplerException {
         checkImplementable(token, jarFile);
 
-        Path tempDirectory = jarFile.resolve("implementorTemp");
-        writeImplementation(token, tempDirectory);
-        if (compileFile(token, tempDirectory) != 0) {
-            deleteDirectory(tempDirectory);
-            throw new ImplerException("Cannot compile file implementation: " + token);
-        }
+        Path tempDirectory = jarFile.toAbsolutePath().getParent().resolve("implementorTemp");
 
-        try (JarOutputStream jarOutputStream = new JarOutputStream(Files.newOutputStream(tempDirectory))) {
+        try {
+            writeImplementation(token, tempDirectory);
+            if (compileFile(token, tempDirectory) != 0) {
+                throw new ImplerException("Cannot compile file implementation: " + token);
+            }
 
+            Manifest manifest = new Manifest();
+            Attributes mainAttributes = manifest.getMainAttributes();
+            mainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
+            try (JarOutputStream jarOutputStream = new JarOutputStream(Files.newOutputStream(jarFile), manifest)) {
+                String file = getFile(token, ".class").toString();
+                jarOutputStream.putNextEntry(new JarEntry(file.replace("\\", "/")));
+                Files.copy(tempDirectory.resolve(file), jarOutputStream);
+            }
         } catch (IOException e) {
             throw new ImplerException("Cannot write files to jar: " + e.getMessage());
+        } finally {
+            deleteDirectory(tempDirectory);
         }
-
-        deleteDirectory(tempDirectory);
     }
 
     private void deleteDirectory(Path tempDirectory) {
-        System.out.println(tempDirectory);
-//        try {
-////            Files.walkFileTree(tempDirectory, DELETE_VISITOR);
-//        } catch (IOException e) {
-//            System.out.println("err" + e.getMessage());
-//        }
+        try {
+            Files.walkFileTree(tempDirectory, DELETE_VISITOR);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -138,19 +151,13 @@ public class Implementor implements JarImpler {
     }
 
     private void writeImplementation(Class<?> token, Path root) throws ImplerException {
-        Path file = getFile(token);
-        Path fileAbsolute = root.resolve(file).toAbsolutePath();
-        createDirectories(fileAbsolute);
-        try (BufferedWriter writer = Files.newBufferedWriter(fileAbsolute)) {
+        Path file = root.resolve(getFile(token, ".java"));
+        createDirectories(file);
+        try (BufferedWriter writer = Files.newBufferedWriter(file)) {
             writePackage(writer, token);
             writeClass(writer, token);
         } catch (IOException e) {
-            deleteDirectory(root.resolve(file.getRoot()));
             throw new ImplerException("Cannot write java file to " + file);
-        } catch (ImplerException e) {
-            ;
-            deleteDirectory(root);
-            throw e;
         }
     }
 
