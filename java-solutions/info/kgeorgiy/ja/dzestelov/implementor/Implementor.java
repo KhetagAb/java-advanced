@@ -1,8 +1,10 @@
 package info.kgeorgiy.ja.dzestelov.implementor;
 
-import info.kgeorgiy.java.advanced.implementor.Impler;
 import info.kgeorgiy.java.advanced.implementor.ImplerException;
+import info.kgeorgiy.java.advanced.implementor.JarImpler;
 
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -10,19 +12,34 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.net.URISyntaxException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 
-public class Implementor implements Impler {
+public class Implementor implements JarImpler {
 
     private static final String TAB = "    ";
     private static final String FILE_NAME_SUFFIX = "Impl";
+    private static final SimpleFileVisitor<Path> DELETE_VISITOR = new SimpleFileVisitor<>() {
+        @Override
+        public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+            Files.delete(file);
+            return FileVisitResult.CONTINUE;
+        }
+
+        @Override
+        public FileVisitResult postVisitDirectory(final Path dir, final IOException exc) throws IOException {
+            Files.delete(dir);
+            return FileVisitResult.CONTINUE;
+        }
+    };
 
     private static final Predicate<Method> IS_ABSTRACT = x -> Modifier.isAbstract(x.getModifiers());
 
@@ -32,41 +49,119 @@ public class Implementor implements Impler {
         return token.getSimpleName() + FILE_NAME_SUFFIX;
     }
 
-    private static Path getJavaFilePath(Class<?> token, Path root) {
-        return root.resolve(token.getPackageName().replace('.', File.separatorChar))
-                .resolve(getClassName(token) + ".java");
+    private static Path getFile(Class<?> token) {
+        return Path.of(token.getPackageName().replace('.', File.separatorChar) + getClassName(token) + ".java");
+
     }
 
-    private static boolean isImplementable(Class<?> token) {
-        return !Modifier.isFinal(token.getModifiers()) && !token.isPrimitive() && !token.equals(Enum.class) && !Modifier.isPrivate(token.getModifiers());
+    public static void main(String[] args) {
+        if (args == null || args.length < 2 || ("jar".equals(args[0]) && args.length < 3)) {
+            System.out.println("Usage: [-jar] className root [outputJarFileName]");
+            return;
+        } else if (args[0] == null || args[1] == null || (args[0].equals("-jar") && args[2] == null)) {
+            System.out.println("Arguments must not be null");
+            return;
+        }
+
+        int isJar = args[0].equals("-jar") ? 0 : 1;
+        JarImpler jarImpler = new Implementor();
+        try {
+            Class<?> clazz = Class.forName(args[isJar]);
+            Path path = Path.of(args[isJar + 1]);
+            if (isJar == 1) {
+                jarImpler.implementJar(clazz, path);
+            } else {
+                jarImpler.implement(clazz, path);
+            }
+        } catch (ClassNotFoundException e) {
+            System.out.println("Cannot find class with name: " + args[isJar]);
+        } catch (InvalidPathException e) {
+            System.out.println("Invalid path: " + args[isJar + 1]);
+        } catch (ImplerException e) {
+            System.out.println("ImplerException occurred: " + e.getMessage());
+        }
+    }
+
+    private static void checkImplementable(Class<?> token, Path root) throws ImplerException {
+        if (root == null) {
+            throw new ImplerException("Root must be not null");
+        }
+        if (token == null || Modifier.isFinal(token.getModifiers()) || token.isPrimitive() || token.equals(Enum.class) || Modifier.isPrivate(token.getModifiers())) {
+            throw new ImplerException("Cannot implement " + token);
+        }
+    }
+
+    private static int compileFile(Class<?> token, Path root) throws ImplerException {
+        try {
+            final String classpath = root + File.pathSeparator + Path.of(token.getProtectionDomain().getCodeSource().getLocation().toURI());
+            final String[] args = new String[]{getFile(token, root).toString(), "-cp", classpath};
+            final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+            return compiler.run(null, null, null, args);
+        } catch (URISyntaxException e) {
+            throw new ImplerException("Cannot generate classpath during compilation: " + token + " in root " + root);
+        }
+    }
+
+    @Override
+    public void implementJar(Class<?> token, Path jarFile) throws ImplerException {
+        checkImplementable(token, jarFile);
+
+        Path tempDirectory = jarFile.resolve("implementorTemp");
+        writeImplementation(token, tempDirectory);
+        if (compileFile(token, tempDirectory) != 0) {
+            deleteDirectory(tempDirectory);
+            throw new ImplerException("Cannot compile file implementation: " + token);
+        }
+
+        try (JarOutputStream jarOutputStream = new JarOutputStream(Files.newOutputStream(tempDirectory))) {
+
+        } catch (IOException e) {
+            throw new ImplerException("Cannot write files to jar: " + e.getMessage());
+        }
+
+        deleteDirectory(tempDirectory);
+    }
+
+    private void deleteDirectory(Path tempDirectory) {
+        System.out.println(tempDirectory);
+//        try {
+////            Files.walkFileTree(tempDirectory, DELETE_VISITOR);
+//        } catch (IOException e) {
+//            System.out.println("err" + e.getMessage());
+//        }
     }
 
     @Override
     public void implement(Class<?> token, Path root) throws ImplerException {
-        if (token == null || root == null) {
-            throw new ImplerException("Arguments must be not null");
-        }
+        checkImplementable(token, root);
+        writeImplementation(token, root);
+    }
 
-        if (!isImplementable(token)) {
-            throw new ImplerException("Cannot implement " + token);
+    private void writeImplementation(Class<?> token, Path root) throws ImplerException {
+        Path file = getFile(token);
+        Path fileAbsolute = root.resolve(file).toAbsolutePath();
+        createDirectories(fileAbsolute);
+        try (BufferedWriter writer = Files.newBufferedWriter(fileAbsolute)) {
+            writePackage(writer, token);
+            writeClass(writer, token);
+        } catch (IOException e) {
+            deleteDirectory(root.resolve(file.getRoot()));
+            throw new ImplerException("Cannot write java file to " + file);
+        } catch (ImplerException e) {
+            ;
+            deleteDirectory(root);
+            throw e;
         }
+    }
 
-        root = getJavaFilePath(token, root);
-        Path parent = root.getParent();
+    private void createDirectories(Path file) {
+        Path parent = file.getParent();
         if (parent != null) {
             try {
                 Files.createDirectories(parent);
             } catch (IOException ignored) {
                 // empty
             }
-        }
-
-        try (BufferedWriter writer = Files.newBufferedWriter(root)) {
-            writePackage(writer, token);
-
-            writeClass(writer, token);
-        } catch (IOException e) {
-            throw new ImplerException("Cannot write java file to " + root);
         }
     }
 
