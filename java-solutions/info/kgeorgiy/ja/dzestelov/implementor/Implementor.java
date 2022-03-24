@@ -134,7 +134,7 @@ public class Implementor implements JarImpler {
             return;
         }
 
-        int isJar = args[0].equals("-jar") ? 0 : 1;
+        int isJar = args[0].equals("-jar") ? 1 : 0;
         JarImpler jarImpler = new Implementor();
         try {
             Class<?> clazz = Class.forName(args[isJar]);
