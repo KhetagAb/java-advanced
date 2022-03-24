@@ -1,6 +1,6 @@
 cd ..\..
 
-SET pack=info\kgeorgiy\java\advanced\implementor
+SET pack=info\kgeorgiy\java\advanced\implementor\
 SET artifacts=.\java-advanced-2022\artifacts
 SET impl=.\java-advanced\java-solutions\info\kgeorgiy\ja\dzestelov\implementor\Implementor.java
 SET temp=.\java-advanced\script\temp
