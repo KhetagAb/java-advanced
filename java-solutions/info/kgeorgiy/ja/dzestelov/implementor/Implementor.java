@@ -179,7 +179,7 @@ public class Implementor implements JarImpler {
     private static int compileFile(Class<?> token, Path dir) throws ImplerException {
         try {
             final String classpath = dir + File.pathSeparator + Path.of(token.getProtectionDomain().getCodeSource().getLocation().toURI());
-            final String[] args = new String[]{getResolveFile(dir, token, ".java").toString(), "-cp", classpath};
+            final String[] args = new String[]{getResolveFile(dir, token, ".java").toString(), "-cp", classpath, "-encoding", "UTF-8"};
             final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             if (compiler == null) {
                 throw new ImplerException("Could not find java compiler, include tools.jar to classpath");
