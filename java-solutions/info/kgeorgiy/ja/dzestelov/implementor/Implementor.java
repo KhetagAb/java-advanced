@@ -97,7 +97,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Get resolved path. Resolve <tt>root</tt> against {@link #getFile(Class, String, Character)} with {@link File#separatorChar} character.
+     * Get resolved path. Resolve {@code root} against {@link #getFile(Class, String, Character)} with {@link File#separatorChar} character.
      * @param root root to resolve path
      * @param token class to get file name
      * @param end suffix used in {@link #getFile(Class, String, Character)}
@@ -108,7 +108,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Get class implementation package name. Separate {@link #getClassName(Class)} by <tt>separator</tt> with <tt>end</tt> suffix.
+     * Get class implementation package name. Separate {@link #getClassName(Class)} by {@code separator} with {@code end} suffix.
      * @param token class to get impl package name
      * @param end added suffix
      * @param separator separator used in impl package name
@@ -119,9 +119,9 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Function to run {@link Implementor}: Without <tt>-jar</tt> flag requires two arguments:
-     * class <tt>className</tt> to implement and <tt>root</tt> to save class implementation.
-     * With <tt>-jar</tt> flag requires <tt>className</tt> and <tt>jarFile</tt> file - name of the jar file to create.
+     * Function to run {@link Implementor}: Without {@code -jar} flag requires two arguments:
+     * class {@code className} to implement and {@code root} to save class implementation.
+     * With {@code -jar} flag requires {@code className} and {@code jarFile} file - name of the jar file to create.
      *
      * @param args arguments to run application
      */
@@ -154,8 +154,8 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Check class <tt>token</tt> and path <tt>root</tt> to be implementable.
-     * Check if arguments is not null, <tt>token</tt> is not final, primitive, {@link Enum} or private.
+     * Check class {@code token} and path {@code root} to be implementable.
+     * Check if arguments is not null, {@code token} is not final, primitive, {@link Enum} or private.
      * @param token class
      * @param root path to save class implementation
      * @throws ImplerException If it cannot be implemented
@@ -170,7 +170,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Compile file class <tt>token</tt> implementation to <tt>dir</tt> directory. Use class <tt>token</tt> classpath.
+     * Compile file class {@code token} implementation to {@code dir} directory. Use class {@code token} classpath.
      * @param token class to compile implementation
      * @param dir directory to store class files
      * @return 0 for success; nonzero otherwise
@@ -277,7 +277,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Get class headline. Headline of public class <tt>token</tt> implementation.
+     * Get class headline. Headline of public class {@code token} implementation.
      * @param token class to implement
      * @return string of public class headline
      */
@@ -287,7 +287,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write fully generated code of class <tt>token</tt> constructors to <tt>writer</tt>. Uses {@link #writeConstructor(BufferedWriter, Constructor)}.
+     * Write fully generated code of class {@code token} constructors to {@code writer}. Uses {@link #writeConstructor(BufferedWriter, Constructor)}.
      * @param writer writer, to write constructors code
      * @param token class
      * @throws IOException If an I/O error occurs
@@ -310,7 +310,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write generated code of class <tt>token</tt> constructor to <tt>writer</tt>.
+     * Write generated code of class {@code token} constructor to {@code writer}.
      * @param writer writer, to write constructor code
      * @param constructor class's constructor
      * @throws IOException If an I/O error occurs
@@ -343,7 +343,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write fully generated code of class <tt>token</tt> abstract methods to <tt>writer</tt>. Uses {@link #writeAbstractMethod(BufferedWriter, Method)}.
+     * Write fully generated code of class {@code token} abstract methods to {@code writer}. Uses {@link #writeAbstractMethod(BufferedWriter, Method)}.
      * @param writer writer, to write abstract methods code
      * @param token class
      * @throws IOException If an I/O error occurs
@@ -367,7 +367,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write generated code of <tt>method</tt> to <tt>writer</tt>.
+     * Write generated code of {@code method} to {@code writer}.
      * @param writer writer, to write constructor code
      * @param method class's method
      * @throws IOException If an I/O error occurs
@@ -473,7 +473,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write open bracket to <tt>writer</tt> and increase {@link #section} counter.
+     * Write open bracket to {@code writer} and increase {@link #section} counter.
      * @param writer writer to write bracket
      * @throws IOException If an I/O error occurs
      */
@@ -483,7 +483,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Decrease {@link #section} counter and write close bracket to <tt>writer</tt>.
+     * Decrease {@link #section} counter and write close bracket to {@code writer}.
      * @param writer writer to write bracket
      * @throws IOException If an I/O error occurs
      */
@@ -493,7 +493,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write <tt>line</tt> to <tt>writer</tt>.
+     * Write {@code line} to {@code writer}.
      * @param writer writer to write line
      * @param line line to be written
      * @throws IOException If an I/O error occurs
@@ -503,7 +503,7 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write new line to <tt>writer</tt>.
+     * Write new line to {@code writer}.
      * @param writer writer to write new line
      * @throws IOException If an I/O error occurs
      */
@@ -512,8 +512,9 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Write <tt>line</tt> to <tt>writer</tt> on new line corrected on {@link #section} counter.
+     * Write {@code line} to {@code writer} on new line corrected on {@link #section} counter.
      * @param writer writer to write new line
+     * @param line line to be written
      * @throws IOException If an I/O error occurs
      */
     private void writeLine(BufferedWriter writer, String line) throws IOException {
