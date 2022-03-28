@@ -15,16 +15,15 @@ import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * Implementation for {@link JarImpler} interface.
@@ -298,7 +297,7 @@ public class Implementor implements JarImpler {
                 .anyMatch(x -> x.getParameterTypes().length == 0);
         List<Constructor<?>> constructors = Arrays.stream(token.getDeclaredConstructors())
                 .filter(x -> !Modifier.isPrivate(x.getModifiers()))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         if (hasEmpty && constructors.isEmpty()) {
             throw new ImplerException("Cannot implement class without public constructors");
@@ -349,18 +348,14 @@ public class Implementor implements JarImpler {
      * @throws IOException If an I/O error occurs
      */
     private void writeAbstractMethods(BufferedWriter writer, Class<?> token) throws IOException {
-        HashSet<WrappedMethod> abstractMethods = new HashSet<>(getAbstractMethods(token.getMethods()));
-        HashSet<WrappedMethod> definedMethods = Arrays.stream(token.getMethods())
-                .filter(Predicate.not(IS_ABSTRACT))
-                .map(WrappedMethod::new)
-                .collect(Collectors.toCollection(HashSet::new));
+        HashSet<WrappedMethod> methods = new HashSet<>();
+        HashSet<WrappedMethod> abstractMethods = new HashSet<>(getFilteredMethods(token.getMethods(), IS_ABSTRACT, methods));
 
         while (token != null) {
-            abstractMethods.addAll(getAbstractMethods(token.getDeclaredMethods()));
+            abstractMethods.addAll(getFilteredMethods(token.getDeclaredMethods(), IS_ABSTRACT, methods));
             token = token.getSuperclass();
         }
 
-        abstractMethods.removeAll(definedMethods);
         for (WrappedMethod abstractMethod : abstractMethods) {
             writeAbstractMethod(writer, abstractMethod.method);
         }
@@ -381,15 +376,19 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Convert {@link Method[]} to {@link List<WrappedMethod>}, filtering by {@link #IS_ABSTRACT} predicate.
+     * Convert {@link Method[]} to {@link List<WrappedMethod>}, filtering by {@link Predicate} predicate and {@link HashSet#contains(Object)} in {@code allMethods}. Removes all methods, that contained in {@code allMethods}.
+     *
      * @param methods array of methods
      * @return list of wrapped methods
      */
-    private List<WrappedMethod> getAbstractMethods(Method[] methods) {
-        return Arrays.stream(methods)
-                .filter(IS_ABSTRACT)
-                .map(WrappedMethod::new)
-                .collect(Collectors.toList());
+    private List<WrappedMethod> getFilteredMethods(Method[] methods, Predicate<Method> predicate, HashSet<WrappedMethod> allMethods) {
+        Map<Boolean, List<WrappedMethod>> collect = Arrays.stream(methods)
+                .collect(Collectors.partitioningBy(predicate, Collectors.mapping(WrappedMethod::new, toList())));
+
+        allMethods.addAll(collect.get(false));
+        return collect.get(true).stream()
+                .filter(Predicate.not(allMethods::contains))
+                .collect(toList());
     }
 
     /**
