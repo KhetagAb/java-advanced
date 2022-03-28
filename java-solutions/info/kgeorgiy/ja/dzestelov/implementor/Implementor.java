@@ -376,9 +376,11 @@ public class Implementor implements JarImpler {
     }
 
     /**
-     * Convert {@link Method[]} to {@link List<WrappedMethod>}, filtering by {@link Predicate} predicate and {@link HashSet#contains(Object)} in {@code allMethods}. Removes all methods, that contained in {@code allMethods}.
+     * Convert array of {@link Method} to {@link List<WrappedMethod>}, filtering by {@code predicate} and {@link HashSet#contains(Object)} in {@code allMethods}, add all other methods to {@code allMethods}.
      *
-     * @param methods array of methods
+     * @param methods    array of methods
+     * @param predicate  predicate to filter methods
+     * @param allMethods list of methods to check if methods is contained in
      * @return list of wrapped methods
      */
     private List<WrappedMethod> getFilteredMethods(Method[] methods, Predicate<Method> predicate, HashSet<WrappedMethod> allMethods) {
