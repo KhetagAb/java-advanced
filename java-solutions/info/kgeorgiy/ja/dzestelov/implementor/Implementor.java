@@ -126,7 +126,7 @@ public class Implementor implements JarImpler {
      */
     public static void main(String[] args) {
         if (args == null || args.length < 2 || ("jar".equals(args[0]) && args.length < 3)) {
-            System.out.println("Usage: [-jar] className root [outputJarFileName]");
+            System.out.println("Usage: 'className filePath' or '-jar className outputJarFileName'");
             return;
         } else if (args[0] == null || args[1] == null || (args[0].equals("-jar") && args[2] == null)) {
             System.out.println("Arguments must not be null");
