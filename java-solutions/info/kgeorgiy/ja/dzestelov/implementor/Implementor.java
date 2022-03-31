@@ -500,7 +500,13 @@ public class Implementor implements JarImpler {
      * @throws IOException If an I/O error occurs
      */
     private void write(BufferedWriter writer, String line) throws IOException {
-        writer.write(line);
+        for (char c : line.toCharArray()) {
+            if (c >= 128) {
+                writer.write("\\u" + String.format("%04X", (int) c));
+            } else {
+                writer.write(c);
+            }
+        }
     }
 
     /**
