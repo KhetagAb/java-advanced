@@ -30,8 +30,19 @@ public class IterativeParallelism implements AdvancedIP {
             l = finalR;
         }
 
+        InterruptedException exc = null;
         for (Thread worker : workers) {
-            worker.join();
+            try {
+                worker.join();
+            } catch (InterruptedException e) {
+                if (exc == null) {
+                    exc = e;
+                }
+            }
+        }
+
+        if (exc != null) {
+            throw exc;
         }
 
         return collector.apply(midterm.stream());
