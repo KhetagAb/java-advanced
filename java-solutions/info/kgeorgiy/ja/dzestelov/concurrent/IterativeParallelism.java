@@ -37,6 +37,8 @@ public class IterativeParallelism implements AdvancedIP {
             } catch (InterruptedException e) {
                 if (exc == null) {
                     exc = e;
+                } else {
+                    exc.addSuppressed(e);
                 }
             }
         }
