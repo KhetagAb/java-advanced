@@ -5,6 +5,7 @@ import info.kgeorgiy.java.advanced.concurrent.ListIP;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -12,8 +13,8 @@ public class IterativeParallelism implements ListIP {
 
     private <T, A, R> R job(int threads,
                             List<? extends T> values,
-                            Function<Stream<? extends T>, A> toWorkers,
-                            Function<Stream<A>, R> fromWorkers
+                            Function<Stream<? extends T>, A> mapper,
+                            Function<Stream<A>, R> collector
     ) throws InterruptedException {
         threads = Math.min(threads, Math.max(values.size(), 1));
         int block = values.size() / threads;
@@ -25,7 +26,7 @@ public class IterativeParallelism implements ListIP {
             int finalI = i;
             int finalL = l;
             int finalR = l + block + (tail-- > 0 ? 1 : 0);
-            workers.add(new Thread(() -> midterm.set(finalI, toWorkers.apply(values.subList(finalL, finalR).stream()))));
+            workers.add(new Thread(() -> midterm.set(finalI, mapper.apply(values.subList(finalL, finalR).stream()))));
             workers.get(i).start();
             l = finalR;
         }
@@ -39,17 +40,22 @@ public class IterativeParallelism implements ListIP {
             }
         }
 
-        return fromWorkers.apply(midterm.stream());
+        return collector.apply(midterm.stream());
+    }
+
+    private <T, A, R> R reduceJob(int threads, List<? extends T> values,
+                                        Function<Stream<? extends T>, Stream<? extends A>> mapper,
+                                        Collector<A, ?, R> collector) throws InterruptedException {
+        return job(threads, values,
+                mapper,
+                s -> s.reduce(Stream::concat)
+                        .orElseGet(Stream::empty)
+                        .collect(collector));
     }
 
     @Override
     public String join(int threads, List<?> values) throws InterruptedException {
-//        return reduceJob(threads, values, s -> s.map(Objects::toString), Collectors.joining());
-        return job(threads, values,
-                s -> s.map(Objects::toString),
-                s -> s.reduce(Stream::concat)
-                        .orElse(Stream.empty())
-                        .collect(Collectors.joining()));
+        return reduceJob(threads, values, s -> s.map(Objects::toString), Collectors.joining());
     }
 
     @Override
@@ -57,11 +63,7 @@ public class IterativeParallelism implements ListIP {
                               List<? extends T> values,
                               Predicate<? super T> predicate
     ) throws InterruptedException {
-        return job(threads, values,
-                s -> s.filter(predicate),
-                s -> s.reduce(Stream::concat)
-                        .orElseGet(Stream::empty)
-                        .collect(Collectors.toList()));
+        return reduceJob(threads, values, s -> s.filter(predicate), Collectors.toList());
     }
 
     @Override
@@ -69,11 +71,7 @@ public class IterativeParallelism implements ListIP {
                               List<? extends T> values,
                               Function<? super T, ? extends U> f
     ) throws InterruptedException {
-        return job(threads, values,
-                s -> s.map(f),
-                s -> s.reduce(Stream::concat)
-                        .orElse(Stream.empty())
-                        .collect(Collectors.toList()));
+        return reduceJob(threads, values, s -> s.map(f), Collectors.toList());
     }
 
     @Override
