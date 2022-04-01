@@ -87,7 +87,7 @@ public class Implementor implements JarImpler {
     private int section = 0;
 
     /**
-     * Get class {@link Class#getSimpleName()} with {@value #FILE_NAME_SUFFIX}.
+     * Get class {@link Class#getSimpleName()} with {@value #FILE_NAME_SUFFIX} suffix.
      * @param token token of class
      * @return class name with suffix
      */
@@ -154,7 +154,7 @@ public class Implementor implements JarImpler {
 
     /**
      * Check class {@code token} and path {@code root} to be implementable.
-     * Check if arguments is not null, {@code token} is not final, primitive, {@link Enum} or private.
+     * Check if arguments is not null, {@code token} is not final, not primitive, not {@link Enum} and not private.
      * @param token class
      * @param root path to save class implementation
      * @throws ImplerException If it cannot be implemented
