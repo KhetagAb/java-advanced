@@ -5,10 +5,69 @@ import info.kgeorgiy.java.advanced.concurrent.AdvancedIP;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class IterativeParallelism implements AdvancedIP {
+
+    private <T, A, R> R reduceJob(int threads,
+                                  List<? extends T> values,
+                                  Collector<T, A, R> collector) throws InterruptedException {
+        threads = Math.min(threads, Math.max(values.size(), 1));
+        int block = values.size() / threads;
+        int tail = values.size() % threads;
+
+        List<Thread> workers = new ArrayList<>(threads);
+        List<A> midterm = new ArrayList<>(Collections.nCopies(threads, null));
+        for (int i = 0, l = 0; i < threads; i++) {
+            Thread thread = getThread(collector, midterm, values.subList(l, l += block + (tail-- > 0 ? 1 : 0)), i);
+            thread.start();
+            workers.add(thread);
+        }
+
+        joinThreads(workers);
+
+        A result = collector.supplier().get();
+        for (int i = 1; i < threads; i++) {
+            result = collector.combiner().apply(result, midterm.get(i));
+        }
+
+        return collector.finisher().apply(result);
+    }
+
+    private <T, A, R> Thread getThread(Collector<T, A, R> collector, List<A> midterm, List<? extends T> subList, int index) {
+        return new Thread(() -> {
+            A container = collector.supplier().get();
+            for (T element : subList) {
+                if (Thread.interrupted()) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                collector.accumulator().accept(container, element);
+            }
+            midterm.set(index, container);
+        });
+    }
+
+    private void joinThreads(List<Thread> workers) throws InterruptedException { // toDo
+        InterruptedException exc = null;
+        for (Thread worker : workers) {
+            try {
+                worker.join();
+            } catch (InterruptedException e) {
+                if (exc == null) {
+                    exc = e;
+                } else {
+                    exc.addSuppressed(e);
+                }
+            }
+        }
+
+        if (exc != null) {
+            throw exc;
+        }
+    }
 
     private <T, A, R> R job(int threads,
                             List<? extends T> values,
@@ -30,22 +89,7 @@ public class IterativeParallelism implements AdvancedIP {
             l = finalR;
         }
 
-        InterruptedException exc = null;
-        for (Thread worker : workers) {
-            try {
-                worker.join();
-            } catch (InterruptedException e) {
-                if (exc == null) {
-                    exc = e;
-                } else {
-                    exc.addSuppressed(e);
-                }
-            }
-        }
-
-        if (exc != null) {
-            throw exc;
-        }
+        joinThreads(workers);
 
         return collector.apply(midterm.stream());
     }
@@ -85,9 +129,9 @@ public class IterativeParallelism implements AdvancedIP {
         if (values.isEmpty()) {
             throw new NoSuchElementException("Values must not be empty");
         }
-        return job(threads, values,
-                s -> s.max(comparator).orElse(null),
-                s -> s.max(comparator).orElse(null));
+
+        return mapReduce(threads, values, Optional::of, new Monoid<Optional<T>>(null,
+                (x, y) -> Collections.max(Arrays.asList(x, y), max))).element();
     }
 
     @Override
