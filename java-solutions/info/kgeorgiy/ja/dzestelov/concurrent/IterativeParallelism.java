@@ -25,7 +25,18 @@ public class IterativeParallelism implements AdvancedIP {
             workers.add(thread);
         }
 
-        return getResult(workers, midterm, collector);
+        joinThreads(workers);
+
+        A result = collector.supplier().get();
+        for (A subResult : midterm) {
+            if (Thread.interrupted()) {
+                Thread.currentThread().interrupt();
+                throw new InterruptedException();
+            }
+            result = collector.combiner().apply(result, subResult);
+        }
+
+        return collector.finisher().apply(result);
     }
 
     private <T, A, R> Thread getThread(Collector<T, A, R> collector, List<A> midterm, List<? extends T> subList, int index) {
@@ -42,7 +53,7 @@ public class IterativeParallelism implements AdvancedIP {
         });
     }
 
-    private <T, A, R> R getResult(List<Thread> workers, List<A> midterm, Collector<T, A, R> collector) throws InterruptedException {
+    private void joinThreads(List<Thread> workers) throws InterruptedException {
         InterruptedException exp = null;
         for (int i = 0; i < workers.size(); i++) {
             try {
@@ -62,17 +73,6 @@ public class IterativeParallelism implements AdvancedIP {
             Thread.currentThread().interrupt();
             throw exp;
         }
-
-        A result = collector.supplier().get();
-        for (A subResult : midterm) {
-            if (Thread.interrupted()) {
-                Thread.currentThread().interrupt();
-                throw new InterruptedException();
-            }
-            result = collector.combiner().apply(result, subResult);
-        }
-
-        return collector.finisher().apply(result);
     }
 
     @Override
