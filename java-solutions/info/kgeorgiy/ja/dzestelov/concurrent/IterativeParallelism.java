@@ -1,6 +1,7 @@
 package info.kgeorgiy.ja.dzestelov.concurrent;
 
 import info.kgeorgiy.java.advanced.concurrent.AdvancedIP;
+import info.kgeorgiy.java.advanced.mapper.ParallelMapper;
 
 import java.util.*;
 import java.util.function.Function;
@@ -17,12 +18,12 @@ public class IterativeParallelism implements AdvancedIP {
         int block = values.size() / threads;
         int tail = values.size() % threads;
 
-        List<Thread> workers = new ArrayList<>(threads);
+        List<Thread> workers = new ArrayList<>(Collections.nCopies(threads, null));
         List<A> midterm = new ArrayList<>(Collections.nCopies(threads, null));
         for (int i = 0, l = 0; i < threads; i++) {
             Thread thread = getThread(collector, midterm, values.subList(l, l += block + (tail-- > 0 ? 1 : 0)), i);
             thread.start();
-            workers.add(thread);
+            workers.set(i, thread);
         }
 
         joinThreads(workers);
