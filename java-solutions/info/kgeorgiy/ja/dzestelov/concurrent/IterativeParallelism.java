@@ -62,7 +62,7 @@ public class IterativeParallelism implements AdvancedIP {
             } catch (InterruptedException e) {
                 if (exp == null) {
                     exp = e;
-                    workers.forEach(Thread::interrupt);
+                    workers.subList(i, workers.size()).forEach(Thread::interrupt);
                     i--;
                 } else {
                     exp.addSuppressed(e);
