@@ -62,6 +62,7 @@ public class IterativeParallelism implements AdvancedIP {
             } catch (InterruptedException e) {
                 if (exp == null) {
                     exp = e;
+                    // :NOTE: можно только префиксу посылать
                     workers.subList(i, workers.size()).forEach(Thread::interrupt);
                     i--;
                 } else {
