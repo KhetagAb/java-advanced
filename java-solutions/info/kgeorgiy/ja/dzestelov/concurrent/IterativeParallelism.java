@@ -11,6 +11,24 @@ import java.util.stream.Collectors;
 
 public class IterativeParallelism implements AdvancedIP {
 
+    private final ParallelMapper parallelMapper;
+
+    /**
+     * Construct class without {@link ParallelMapper} usage.
+     */
+    public IterativeParallelism() {
+        parallelMapper = null;
+    }
+
+    /**
+     * Construct class with {@link ParallelMapper} scheduler.
+     *
+     * @param parallelMapper mapper to use while scheduling jobs
+     */
+    public IterativeParallelism(ParallelMapper parallelMapper) {
+        this.parallelMapper = parallelMapper;
+    }
+
     private <T, A, R> R reduceJob(int threads,
                                   List<? extends T> values,
                                   Collector<T, A, R> collector) throws InterruptedException {
@@ -18,15 +36,24 @@ public class IterativeParallelism implements AdvancedIP {
         int block = values.size() / threads;
         int tail = values.size() % threads;
 
-        List<Thread> workers = new ArrayList<>(Collections.nCopies(threads, null));
-        List<A> midterm = new ArrayList<>(Collections.nCopies(threads, null));
+        List<List<? extends T>> jobs = new ArrayList<>();
         for (int i = 0, l = 0; i < threads; i++) {
-            Thread thread = getThread(collector, midterm, values.subList(l, l += block + (tail-- > 0 ? 1 : 0)), i);
-            thread.start();
-            workers.set(i, thread);
+            jobs.add(values.subList(l, l += block + (tail-- > 0 ? 1 : 0)));
         }
 
-        joinThreads(workers);
+        List<A> midterm;
+        if (parallelMapper == null) {
+            midterm = new ArrayList<>(Collections.nCopies(threads, null));
+            List<Thread> workers = new ArrayList<>(Collections.nCopies(threads, null));
+            for (int i = 0; i < threads; i++) {
+                Thread thread = getJobbedThread(collector, midterm, jobs.get(i), i);
+                thread.start();
+                workers.set(i, thread);
+            }
+            joinThreads(workers);
+        } else {
+            midterm = parallelMapper.map(getJobbedFunction(collector), jobs);
+        }
 
         A result = collector.supplier().get();
         for (A subResult : midterm) {
@@ -40,7 +67,15 @@ public class IterativeParallelism implements AdvancedIP {
         return collector.finisher().apply(result);
     }
 
-    private <T, A, R> Thread getThread(Collector<T, A, R> collector, List<A> midterm, List<? extends T> subList, int index) {
+    private <T, A> Function<List<? extends T>, A> getJobbedFunction(Collector<T, A, ?> collector) {
+        return ts -> {
+            A container = collector.supplier().get();
+            ts.forEach(e -> collector.accumulator().accept(container, e));
+            return container;
+        };
+    }
+
+    private <T, A> Thread getJobbedThread(Collector<T, A, ?> collector, List<A> midterm, List<? extends T> subList, int index) {
         return new Thread(() -> {
             A container = collector.supplier().get();
             for (T element : subList) {
@@ -62,7 +97,6 @@ public class IterativeParallelism implements AdvancedIP {
             } catch (InterruptedException e) {
                 if (exp == null) {
                     exp = e;
-                    // :NOTE: можно только префиксу посылать
                     workers.subList(i, workers.size()).forEach(Thread::interrupt);
                     i--;
                 } else {
