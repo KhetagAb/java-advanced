@@ -46,26 +46,15 @@ public class ParallelMapperImpl implements ParallelMapper {
         List<R> result = new ArrayList<>(Collections.nCopies(args.size(), null));
 
         List<Job> currentJobs = new ArrayList<>(Collections.nCopies(args.size(), null));
-        final int[] counter = new int[]{args.size()};
+        ConcurrentCounter counter = new ConcurrentCounter(args.size());
         for (int i = 0; i < args.size(); i++) {
             int finalI = i;
-            Job job = new Job(() -> {
-                result.set(finalI, f.apply(args.get(finalI)));
-                synchronized (counter) {
-                    counter[0]--;
-                    counter.notify();
-                }
-            });
+            Job job = new Job(() -> result.set(finalI, f.apply(args.get(finalI))), counter);
             currentJobs.set(i, job);
             jobs.push(job);
         }
 
-        synchronized (counter) {
-            while (counter[0] > 0) {
-                counter.wait();
-            }
-        }
-
+        counter.waitUntil();
         checkJobsForExceptions(currentJobs);
 
         return result;
@@ -106,13 +95,16 @@ public class ParallelMapperImpl implements ParallelMapper {
         }
     }
 
-    static class Job {
+    class Job {
 
         private final Runnable run;
+        private final ConcurrentCounter counter;
+
         private Exception exception = null;
 
-        private Job(Runnable run) {
+        private Job(Runnable run, ConcurrentCounter counter) {
             this.run = run;
+            this.counter = counter;
         }
 
         private synchronized void run() {
@@ -120,11 +112,33 @@ public class ParallelMapperImpl implements ParallelMapper {
                 run.run();
             } catch (Exception e) {
                 exception = e;
+            } finally {
+                counter.decrement();
             }
         }
 
         private synchronized Exception getException() {
             return this.exception;
+        }
+    }
+
+    class ConcurrentCounter {
+
+        private int counter;
+
+        private ConcurrentCounter(int counter) {
+            this.counter = counter;
+        }
+
+        private synchronized void decrement() {
+            --counter;
+            this.notify();
+        }
+
+        private synchronized void waitUntil() throws InterruptedException {
+            while (counter != 0) {
+                this.wait();
+            }
         }
     }
 
