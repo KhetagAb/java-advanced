@@ -82,12 +82,12 @@ public class ParallelMapperImpl implements ParallelMapper {
 
     static class ConcurrentQueue {
 
-        private final int threads;
+        private final int capacity;
         private final Deque<Runnable> runs;
 
-        ConcurrentQueue(int threads) {
+        ConcurrentQueue(int capacity) {
             this.runs = new ArrayDeque<>();
-            this.threads = threads;
+            this.capacity = capacity;
         }
 
         private synchronized Runnable pop() throws InterruptedException {
@@ -100,7 +100,7 @@ public class ParallelMapperImpl implements ParallelMapper {
         }
 
         private synchronized void push(Runnable run) throws InterruptedException {
-            while (runs.size() == threads) {
+            while (runs.size() == capacity) {
                 this.wait();
             }
             runs.push(run);
