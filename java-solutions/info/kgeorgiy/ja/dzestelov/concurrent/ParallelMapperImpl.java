@@ -22,18 +22,20 @@ public class ParallelMapperImpl implements ParallelMapper {
         this.jobs = new ConcurrentQueue(threads);
         this.workers = new ArrayList<>(Collections.nCopies(threads, null));
 
-        for (int i = 0; i < workers.size(); i++) {
-            Thread worker = new Thread(() -> {
-                while (!Thread.interrupted()) {
-                    try {
-                        jobs.pop().run();
-                    } catch (InterruptedException e) {
-                        break;
-                    }
+        Runnable workerRun = () -> {
+            while (!Thread.interrupted()) {
+                try {
+                    jobs.pop().run();
+                } catch (InterruptedException e) {
+                    break;
                 }
+            }
 
-                Thread.currentThread().interrupt();
-            });
+            Thread.currentThread().interrupt();
+        };
+
+        for (int i = 0; i < workers.size(); i++) {
+            Thread worker = new Thread(workerRun);
             worker.start();
             workers.set(i, worker);
         }
@@ -43,16 +45,19 @@ public class ParallelMapperImpl implements ParallelMapper {
     public <T, R> List<R> map(Function<? super T, ? extends R> f, List<? extends T> args) throws InterruptedException {
         List<R> result = new ArrayList<>(Collections.nCopies(args.size(), null));
 
+        List<Job> currentJobs = new ArrayList<>(Collections.nCopies(args.size(), null));
         final int[] counter = new int[]{args.size()};
         for (int i = 0; i < args.size(); i++) {
             int finalI = i;
-            jobs.push(() -> {
+            Job job = new Job(() -> {
                 result.set(finalI, f.apply(args.get(finalI)));
                 synchronized (counter) {
                     counter[0]--;
                     counter.notify();
                 }
             });
+            currentJobs.set(i, job);
+            jobs.push(job);
         }
 
         synchronized (counter) {
@@ -61,7 +66,28 @@ public class ParallelMapperImpl implements ParallelMapper {
             }
         }
 
+        checkJobsForExceptions(currentJobs);
+
         return result;
+    }
+
+    private void checkJobsForExceptions(List<Job> currentJobs) throws InterruptedException {
+        Exception exp = null;
+        for (Job job : currentJobs) {
+            Exception e = job.getException();
+            if (e != null) {
+                if (exp == null) {
+                    exp = e;
+                } else {
+                    exp.addSuppressed(e);
+                }
+            }
+        }
+        if (exp != null) {
+            InterruptedException toThrow = new InterruptedException("Exception handled during jobs execution");
+            toThrow.addSuppressed(exp);
+            throw toThrow;
+        }
     }
 
     /**
@@ -80,26 +106,48 @@ public class ParallelMapperImpl implements ParallelMapper {
         }
     }
 
+    static class Job {
+
+        private final Runnable run;
+        private Exception exception = null;
+
+        private Job(Runnable run) {
+            this.run = run;
+        }
+
+        private synchronized void run() {
+            try {
+                run.run();
+            } catch (Exception e) {
+                exception = e;
+            }
+        }
+
+        private synchronized Exception getException() {
+            return this.exception;
+        }
+    }
+
     static class ConcurrentQueue {
 
         private final int capacity;
-        private final Deque<Runnable> runs;
+        private final Deque<Job> runs;
 
         ConcurrentQueue(int capacity) {
             this.runs = new ArrayDeque<>();
             this.capacity = capacity;
         }
 
-        private synchronized Runnable pop() throws InterruptedException {
+        private synchronized Job pop() throws InterruptedException {
             while (runs.isEmpty()) {
                 this.wait();
             }
-            Runnable run = runs.remove();
+            Job run = runs.remove();
             notifyAll();
             return run;
         }
 
-        private synchronized void push(Runnable run) throws InterruptedException {
+        private synchronized void push(Job run) throws InterruptedException {
             while (runs.size() == capacity) {
                 this.wait();
             }
