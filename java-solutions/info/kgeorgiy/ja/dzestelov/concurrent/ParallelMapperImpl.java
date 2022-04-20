@@ -54,7 +54,8 @@ public class ParallelMapperImpl implements ParallelMapper {
             jobs.push(job);
         }
 
-        counter.waitUntil();
+        counter.waitUntilEmpty();
+
         checkJobsForExceptions(currentJobs);
 
         return result;
@@ -80,7 +81,7 @@ public class ParallelMapperImpl implements ParallelMapper {
     }
 
     /**
-     * Stops all threads. All unfinished mappings leave in undefined state. Interrupting current thread during closing cause resources leaks.
+     * Stops all threads. All unfinished mappings leave in undefined state. Interrupting current thread during closing cause undefined behavior.
      */
     @Override
     public void close() {
@@ -93,9 +94,10 @@ public class ParallelMapperImpl implements ParallelMapper {
                 // ignored
             }
         }
+        jobs.clear();
     }
 
-    class Job {
+    static class Job {
 
         private final Runnable run;
         private final ConcurrentCounter counter;
@@ -122,7 +124,7 @@ public class ParallelMapperImpl implements ParallelMapper {
         }
     }
 
-    class ConcurrentCounter {
+    static class ConcurrentCounter {
 
         private int counter;
 
@@ -135,7 +137,7 @@ public class ParallelMapperImpl implements ParallelMapper {
             this.notify();
         }
 
-        private synchronized void waitUntil() throws InterruptedException {
+        private synchronized void waitUntilEmpty() throws InterruptedException {
             while (counter != 0) {
                 this.wait();
             }
@@ -144,7 +146,7 @@ public class ParallelMapperImpl implements ParallelMapper {
 
     static class ConcurrentQueue {
 
-        private final int capacity;
+        private int capacity;
         private final Deque<Job> runs;
 
         ConcurrentQueue(int capacity) {
@@ -167,6 +169,12 @@ public class ParallelMapperImpl implements ParallelMapper {
             }
             runs.push(run);
             notifyAll();
+        }
+
+
+        private synchronized void clear() {
+            this.capacity = 0;
+            this.runs.clear();
         }
     }
 }

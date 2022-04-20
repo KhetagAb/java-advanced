@@ -68,11 +68,7 @@ public class IterativeParallelism implements AdvancedIP {
     }
 
     private <T, A> Function<List<? extends T>, A> getJobbedFunction(Collector<T, A, ?> collector) {
-        return ts -> {
-            A container = collector.supplier().get();
-            ts.forEach(e -> collector.accumulator().accept(container, e));
-            return container;
-        };
+        return ts -> ts.stream().collect(Collector.of(collector.supplier(), collector.accumulator(), collector.combiner()));
     }
 
     private <T, A> Thread getJobbedThread(Collector<T, A, ?> collector, List<A> midterm, List<? extends T> subList, int index) {
