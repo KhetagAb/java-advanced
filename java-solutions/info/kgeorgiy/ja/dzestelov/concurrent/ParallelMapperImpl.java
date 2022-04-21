@@ -30,8 +30,6 @@ public class ParallelMapperImpl implements ParallelMapper {
                     break;
                 }
             }
-
-            Thread.currentThread().interrupt();
         };
 
         for (int i = 0; i < workers.size(); i++) {
@@ -61,10 +59,10 @@ public class ParallelMapperImpl implements ParallelMapper {
         return result;
     }
 
-    private void checkJobsForExceptions(List<Job> currentJobs) throws InterruptedException {
-        Exception exp = null;
+    private void checkJobsForExceptions(List<Job> currentJobs) {
+        RuntimeException exp = null;
         for (Job job : currentJobs) {
-            Exception e = job.getException();
+            RuntimeException e = job.getException();
             if (e != null) {
                 if (exp == null) {
                     exp = e;
@@ -74,9 +72,7 @@ public class ParallelMapperImpl implements ParallelMapper {
             }
         }
         if (exp != null) {
-            InterruptedException toThrow = new InterruptedException("Exception handled during jobs execution");
-            toThrow.addSuppressed(exp);
-            throw toThrow;
+            throw exp;
         }
     }
 
@@ -86,7 +82,6 @@ public class ParallelMapperImpl implements ParallelMapper {
     @Override
     public void close() {
         workers.forEach(Thread::interrupt);
-
         for (Thread worker : workers) {
             try {
                 worker.join();
@@ -102,7 +97,7 @@ public class ParallelMapperImpl implements ParallelMapper {
         private final Runnable run;
         private final ConcurrentCounter counter;
 
-        private Exception exception = null;
+        private RuntimeException exception = null;
 
         private Job(Runnable run, ConcurrentCounter counter) {
             this.run = run;
@@ -112,14 +107,14 @@ public class ParallelMapperImpl implements ParallelMapper {
         private synchronized void run() {
             try {
                 run.run();
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 exception = e;
             } finally {
                 counter.decrement();
             }
         }
 
-        private synchronized Exception getException() {
+        private synchronized RuntimeException getException() {
             return this.exception;
         }
     }
