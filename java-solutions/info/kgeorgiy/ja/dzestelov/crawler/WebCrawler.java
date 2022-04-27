@@ -10,6 +10,7 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
 /**
  * Class that allows to crawl websites.
@@ -19,18 +20,18 @@ public class WebCrawler implements Crawler {
     private final Downloader downloader;
     private final int perHost;
 
+    private final WrappedCompletionService<UrlDocument> downloadCompletionService;
+    private final WrappedCompletionService<List<String>> extractCompletionService;
     private final ExecutorService downloadService;
     private final ExecutorService extractService;
-    private final CompletionService<Document> downloadCompletionService;
-    private final CompletionService<List<String>> extractCompletionService;
 
     public WebCrawler(Downloader downloader, int downloaders, int extractors, int perHost) {
         this.perHost = perHost;
         this.downloadService = Executors.newFixedThreadPool(downloaders);
         this.extractService = Executors.newFixedThreadPool(extractors);
-        this.downloadCompletionService = new ExecutorCompletionService<>(downloadService);
-        this.extractCompletionService = new ExecutorCompletionService<>(extractService);
         this.downloader = downloader;
+        this.downloadCompletionService = new WrappedCompletionService<>(new ExecutorCompletionService<>(this.downloadService));
+        this.extractCompletionService = new WrappedCompletionService<>(new ExecutorCompletionService<>(this.extractService));
     }
 
     private static String getHost(final String url) throws MalformedURLException {
@@ -75,59 +76,50 @@ public class WebCrawler implements Crawler {
      */
     @Override
     public Result download(String url, int depth) {
-        ConcurrentMap<String, IOException> errors = new ConcurrentHashMap<>();
         List<String> downloaded = new ArrayList<>();
+        ConcurrentMap<String, IOException> errors = new ConcurrentHashMap<>();
 
         Set<String> used = new HashSet<>();
-        Queue<List<String>> layer = new ArrayDeque<>();
+        Queue<List<String>> current = new ArrayDeque<>();
+        current.add(List.of(url));
 
-        Document document = getDocument(url, errors);
-        if (document != null) { // toDo
-            downloaded.add(url);
-            List<String> urls = getLinks(url, document, errors);
-            if (urls != null) {
-                layer.add(urls);
-            }
-        }
+        Consumer<UrlDocument> downed = document -> {
+            downloaded.add(document.getUrl());
+            extractCompletionService.add(() -> getLinks(document, errors));
+        };
 
-        while (!layer.isEmpty() && --depth > 0) {
-            for (String currentUrl : layer.poll()) {
-                downloadCompletionService.submit(() -> getDocument(currentUrl, errors));
-
-                downloadService.
-
-                        Future<Document> poll = downloadCompletionService.take();
-                if (poll.get() {
-
+        while (depth-- > 0) {
+            Queue<List<String>> next = new ArrayDeque<>();
+            while (!current.isEmpty()) {
+                for (String currentUrl : current.poll()) {
+                    if (!used.contains(currentUrl)) {
+                        used.add(currentUrl);
+                        downloadCompletionService.add(() -> getDocument(currentUrl, errors));
+                    }
                 }
+
+                downloadCompletionService.pollAll(downed);
+                extractCompletionService.pollAll(next::add);
             }
 
-            try {
-                while (extractCompletionService)
-                    downloadCompletionService.take();
-            } catch (InterruptedException e) {
-
-            }
+            current = next;
         }
 
         return new Result(downloaded, errors);
     }
 
-    private List<String> getLinks(String url, Document document, ConcurrentMap<String, IOException> errors) {
-        if (document != null) {
-            try {
-                return document.extractLinks();
-            } catch (IOException e) {
-                errors.put(url, e);
-            }
+    private List<String> getLinks(UrlDocument document, ConcurrentMap<String, IOException> errors) {
+        try {
+            return document.extractLinks();
+        } catch (IOException e) {
+            errors.put(document.getUrl(), e);
+            return null;
         }
-
-        return null; // toDo empty?
     }
 
-    private Document getDocument(String url, ConcurrentMap<String, IOException> errors) {
+    private UrlDocument getDocument(String url, ConcurrentMap<String, IOException> errors) {
         try {
-            return downloader.download(url);
+            return new UrlDocument(url, downloader.download(url));
         } catch (IOException e) {
             errors.put(url, e);
             return null;
@@ -140,5 +132,57 @@ public class WebCrawler implements Crawler {
     @Override
     public void close() {
 
+    }
+
+    static class WrappedCompletionService<T> {
+
+        private final CompletionService<T> completionService;
+        private int counter = 0;
+
+        WrappedCompletionService(CompletionService<T> completionService) {
+            this.completionService = completionService;
+        }
+
+        private void add(Callable<T> task) {
+            counter++;
+            completionService.submit(task);
+        }
+
+        private T poll() {
+            try {
+                T t = completionService.take().get();
+                counter--;
+                return t;
+            } catch (ExecutionException e) {
+                return null;
+            } catch (InterruptedException e) {
+                return null;
+            }
+        }
+
+        private void pollAll(Consumer<? super T> consumer) {
+            while (!isEmpty()) {
+                T e = poll();
+                if (e != null) {
+                    consumer.accept(e);
+                }
+            }
+        }
+
+        private boolean isEmpty() {
+            return counter == 0;
+        }
+    }
+
+    record UrlDocument(String url, Document document) implements Document {
+
+        private String getUrl() {
+            return url;
+        }
+
+        @Override
+        public List<String> extractLinks() throws IOException {
+            return document.extractLinks();
+        }
     }
 }
