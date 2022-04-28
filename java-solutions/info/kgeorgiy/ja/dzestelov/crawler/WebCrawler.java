@@ -136,13 +136,13 @@ public class WebCrawler implements AdvancedCrawler {
         }
 
         while (depth-- > 0) {
-            List<UrlLinks> futures = new ArrayList<>();
+            List<FutureUrlLinks> futures = new ArrayList<>();
             while (!current.isEmpty()) {
                 String currentUrl = current.remove();
-                Future<UrlDocument> submit = downloadService.submit(() -> getDocument(currentUrl, hosts));
-                futures.add(new UrlLinks(currentUrl, extractService.submit(() -> getFutureLinks(submit))));
+                Future<Document> submit = downloadService.submit(() -> getDocument(currentUrl, hosts));
+                futures.add(new FutureUrlLinks(currentUrl, extractService.submit(() -> getFutureLinks(submit))));
             }
-            for (UrlLinks future : futures) {
+            for (FutureUrlLinks future : futures) {
                 try {
                     for (String u : future.getUrls().get()) {
                         if (!used.contains(u) && urlPredicate.test(u)) {
@@ -165,20 +165,20 @@ public class WebCrawler implements AdvancedCrawler {
         return new Result(downloaded, errors);
     }
 
-    private UrlDocument getDocument(String url, ConcurrentMap<String, Semaphore> hosts) throws IOException, InterruptedException {
+    private Document getDocument(String url, ConcurrentMap<String, Semaphore> hosts) throws IOException, InterruptedException {
         String host = getHost(url);
         hosts.putIfAbsent(host, new Semaphore(perHost));
         try {
             hosts.get(host).acquire();
-            return new UrlDocument(url, downloader.download(url));
+            return downloader.download(url);
         } finally {
             hosts.get(host).release();
         }
     }
 
-    private List<String> getFutureLinks(Future<UrlDocument> document) throws IOException, InterruptedException {
+    private List<String> getFutureLinks(Future<Document> document) throws IOException, InterruptedException {
         try {
-            return document.get().document.extractLinks();
+            return document.get().extractLinks();
         } catch (ExecutionException e) {
             throw wrapException(e);
         }
@@ -213,19 +213,7 @@ public class WebCrawler implements AdvancedCrawler {
         }
     }
 
-    record UrlDocument(String url, Document document) implements Document {
-
-        private String getUrl() {
-            return url;
-        }
-
-        @Override
-        public List<String> extractLinks() throws IOException {
-            return document.extractLinks();
-        }
-    }
-
-    record UrlLinks(String url, Future<List<String>> urls) {
+    record FutureUrlLinks(String url, Future<List<String>> urls) {
 
         private String getUrl() {
             return url;
