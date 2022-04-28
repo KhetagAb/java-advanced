@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Class that allows to crawl websites.
@@ -92,7 +93,7 @@ public class WebCrawler implements AdvancedCrawler {
 
     @Override
     public Result download(String url, int depth, List<String> hosts) {
-        Set<String> h = new HashSet<>(hosts);
+        Set<String> h = hosts.stream().collect(Collectors.toUnmodifiableSet());
         return downloadVerifyUrls(url, depth, x -> {
             try {
                 return h.contains(getHost(x));
@@ -123,7 +124,7 @@ public class WebCrawler implements AdvancedCrawler {
 
     private Result downloadVerifyUrls(String url, int depth, Predicate<String> urlPredicate) {
         final List<String> downloaded = new ArrayList<>();
-        final ConcurrentMap<String, Semaphore> hosts = new ConcurrentSkipListMap<>();
+        final ConcurrentMap<String, Semaphore> hosts = new ConcurrentHashMap<>();
 
         final Map<String, IOException> errors = new HashMap<>();
 
