@@ -49,9 +49,9 @@ public class WebCrawler implements AdvancedCrawler {
         int perHost;
         try {
             depth = getIArg(args, 1, Integer.MAX_VALUE);
-            downloads = getIArg(args, 1, Integer.MAX_VALUE);
-            extractors = getIArg(args, 1, Integer.MAX_VALUE);
-            perHost = getIArg(args, 1, downloads);
+            downloads = getIArg(args, 2, Integer.MAX_VALUE);
+            extractors = getIArg(args, 3, Integer.MAX_VALUE);
+            perHost = getIArg(args, 4, downloads);
         } catch (IllegalArgumentException e) {
             System.out.println(e.getMessage());
             return;
