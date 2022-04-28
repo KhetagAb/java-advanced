@@ -15,7 +15,7 @@ import java.util.function.Predicate;
 /**
  * Class that allows to crawl websites.
  */
-public class WebCrawler implements Crawler {
+public class WebCrawler implements AdvancedCrawler {
 
     private static final int CLOSE_TIMEOUT_SECONDS = 10;
     private final Downloader downloader;
@@ -50,6 +50,18 @@ public class WebCrawler implements Crawler {
         return downloadVerifyUrls(url, depth, x -> true);
     }
 
+    @Override
+    public Result download(String url, int depth, List<String> hosts) {
+        Set<String> h = new HashSet<>(hosts);
+        return downloadVerifyUrls(url, depth, x -> {
+            try {
+                return h.contains(getHost(x));
+            } catch (MalformedURLException e) {
+                return false;
+            }
+        });
+    }
+
     private static String getHost(final String url) throws MalformedURLException {
         return getURI(url).getHost();
     }
@@ -70,7 +82,7 @@ public class WebCrawler implements Crawler {
     }
 
     private Result downloadVerifyUrls(String url, int depth, Predicate<String> urlPredicate) {
-        final Queue<String> downloaded = new ConcurrentLinkedQueue<>();
+        final List<String> downloaded = new ArrayList<>();
         final ConcurrentMap<String, Semaphore> hosts = new ConcurrentHashMap<>();
 
         final Map<String, IOException> errors = new HashMap<>();
@@ -87,16 +99,8 @@ public class WebCrawler implements Crawler {
             List<UrlLinks> futures = new ArrayList<>();
             while (!current.isEmpty()) {
                 String currentUrl = current.remove();
-                futures.add(new UrlLinks(currentUrl,
-                        extractService.submit(() -> getFutureLinks(
-                                downloadService.submit(() -> {
-                                            UrlDocument document = getDocument(currentUrl, hosts);
-                                            downloaded.add(document.getUrl());
-                                            return document;
-                                        }
-                                ))
-                        ))
-                );
+                Future<UrlDocument> submit = downloadService.submit(() -> getDocument(currentUrl, hosts));
+                futures.add(new UrlLinks(currentUrl, extractService.submit(() -> getFutureLinks(submit))));
             }
             for (UrlLinks future : futures) {
                 try {
@@ -106,6 +110,7 @@ public class WebCrawler implements Crawler {
                             used.add(u);
                         }
                     }
+                    downloaded.add(future.getUrl());
                 } catch (ExecutionException e) {
                     errors.put(future.getUrl(), wrapException(e));
                 } catch (InterruptedException e) {
@@ -117,7 +122,7 @@ public class WebCrawler implements Crawler {
             current = next;
         }
 
-        return new Result(downloaded.stream().toList(), errors);
+        return new Result(downloaded, errors);
     }
 
     private UrlDocument getDocument(String url, ConcurrentMap<String, Semaphore> hosts) throws IOException, InterruptedException {
