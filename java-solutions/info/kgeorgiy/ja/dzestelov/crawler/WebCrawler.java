@@ -130,7 +130,6 @@ public class WebCrawler implements AdvancedCrawler {
 
         final Set<String> used = new HashSet<>();
         Queue<String> current = new ArrayDeque<>();
-        Queue<String> next = new ArrayDeque<>();
         if (urlPredicate.test(url)) {
             used.add(url);
             current.add(url);
@@ -143,6 +142,7 @@ public class WebCrawler implements AdvancedCrawler {
                 Future<Document> submit = downloadService.submit(() -> getDocument(currentUrl, hosts));
                 futures.add(new FutureUrlLinks(currentUrl, extractService.submit(() -> getFutureLinks(submit))));
             }
+            Queue<String> next = new ArrayDeque<>();
             for (FutureUrlLinks future : futures) {
                 try {
                     for (String u : future.getUrls().get()) {
