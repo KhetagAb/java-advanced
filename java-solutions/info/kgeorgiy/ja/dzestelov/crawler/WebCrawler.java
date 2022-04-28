@@ -54,6 +54,7 @@ public class WebCrawler implements AdvancedCrawler {
             extractors = getIArg(args, 3, Integer.MAX_VALUE);
             perHost = getIArg(args, 4, downloads);
         } catch (IllegalArgumentException e) {
+            // :NOTE: err, своё сообщение
             System.out.println(e.getMessage());
             return;
         }
@@ -160,6 +161,7 @@ public class WebCrawler implements AdvancedCrawler {
                 }
             }
 
+            // :NOTE: не чистим next?
             current = next;
         }
 
