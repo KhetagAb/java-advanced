@@ -68,6 +68,7 @@ public class WebCrawler implements AdvancedCrawler {
 
             crawler.close();
         } catch (IOException e) {
+            // :NOTE: зачем?
             e.printStackTrace();
         }
     }
