@@ -32,16 +32,50 @@ public class WebCrawler implements AdvancedCrawler {
     }
 
     /**
-     * toDO
+     * Run crawler with given usage.
+     * Usage: WebCrawler url [depth [downloads [extractors [perHost]]]]
      *
-     * @param args
+     * @param args - arguments of crawler
      */
     public static void main(String[] args) {
+        if (args == null || args.length < 1 || args.length > 5) {
+            System.out.println("Usage: WebCrawler url [depth [downloads [extractors [perHost]]]]");
+            return;
+        }
+
+        int depth;
+        int downloads;
+        int extractors;
+        int perHost;
+        try {
+            depth = getIArg(args, 1, Integer.MAX_VALUE);
+            downloads = getIArg(args, 1, Integer.MAX_VALUE);
+            extractors = getIArg(args, 1, Integer.MAX_VALUE);
+            perHost = getIArg(args, 1, downloads);
+        } catch (IllegalArgumentException e) {
+            System.out.println(e.getMessage());
+            return;
+        }
         try {
             Downloader downloader = new CachingDownloader(Path.of(""));
-            // toDo
+            WebCrawler crawler = new WebCrawler(downloader, downloads, extractors, perHost);
+
+            crawler.download(args[0], depth);
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private static int getIArg(String[] args, int i, int defaultValue) {
+        if (i < args.length) {
+            int i1 = Integer.parseInt(args[i]);
+            if (i1 > 0) {
+                return i1;
+            } else {
+                throw new IllegalArgumentException("Arguments must be positive");
+            }
+        } else {
+            return defaultValue;
         }
     }
 
