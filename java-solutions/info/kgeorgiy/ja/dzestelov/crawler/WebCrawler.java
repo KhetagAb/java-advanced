@@ -161,7 +161,6 @@ public class WebCrawler implements AdvancedCrawler {
                 }
             }
 
-            // :NOTE: не чистим next?
             current = next;
         }
 
