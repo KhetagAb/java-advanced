@@ -123,7 +123,7 @@ public class WebCrawler implements AdvancedCrawler {
 
     private Result downloadVerifyUrls(String url, int depth, Predicate<String> urlPredicate) {
         final List<String> downloaded = new ArrayList<>();
-        final ConcurrentMap<String, Semaphore> hosts = new ConcurrentHashMap<>();
+        final ConcurrentMap<String, Semaphore> hosts = new ConcurrentSkipListMap<>();
 
         final Map<String, IOException> errors = new HashMap<>();
 
