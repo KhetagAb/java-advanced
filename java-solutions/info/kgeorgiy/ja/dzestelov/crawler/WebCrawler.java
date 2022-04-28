@@ -10,7 +10,6 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -22,8 +21,6 @@ public class WebCrawler implements Crawler {
     private final Downloader downloader;
     private final int perHost;
 
-    private final WrappedCompletionService<UrlDocument> downloadCompletionService;
-    private final WrappedCompletionService<List<String>> extractCompletionService;
     private final ExecutorService downloadService;
     private final ExecutorService extractService;
 
@@ -32,8 +29,6 @@ public class WebCrawler implements Crawler {
         this.downloadService = Executors.newFixedThreadPool(downloaders);
         this.extractService = Executors.newFixedThreadPool(extractors);
         this.downloader = downloader;
-        this.downloadCompletionService = new WrappedCompletionService<>(new ExecutorCompletionService<>(this.downloadService));
-        this.extractCompletionService = new WrappedCompletionService<>(new ExecutorCompletionService<>(this.extractService));
     }
 
     /**
@@ -48,6 +43,11 @@ public class WebCrawler implements Crawler {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public Result download(String url, int depth) {
+        return downloadVerifyUrls(url, depth, x -> true);
     }
 
     private static String getHost(final String url) throws MalformedURLException {
@@ -69,15 +69,11 @@ public class WebCrawler implements Crawler {
         return index >= 0 ? url.substring(0, index) : url;
     }
 
-    @Override
-    public Result download(String url, int depth) {
-        return downloadVerifyUrls(url, depth, x -> true);
-    }
-
     private Result downloadVerifyUrls(String url, int depth, Predicate<String> urlPredicate) {
-        final List<String> downloaded = new ArrayList<>();
-        final ConcurrentMap<String, IOException> errors = new ConcurrentHashMap<>();
+        final Queue<String> downloaded = new ConcurrentLinkedQueue<>();
         final ConcurrentMap<String, Semaphore> hosts = new ConcurrentHashMap<>();
+
+        final Map<String, IOException> errors = new HashMap<>();
 
         final Set<String> used = new HashSet<>();
         Queue<String> current = new ArrayDeque<>();
@@ -87,69 +83,64 @@ public class WebCrawler implements Crawler {
             current.add(url);
         }
 
-        Consumer<List<String>> extracted = list -> {
-            for (String u : list) {
-                if (!used.contains(u) && urlPredicate.test(u)) {
-                    next.add(u);
-                    used.add(u);
-                }
-            }
-        };
-
         while (depth-- > 0) {
+            List<UrlLinks> futures = new ArrayList<>();
             while (!current.isEmpty()) {
                 String currentUrl = current.remove();
-                Future<UrlDocument> add = downloadCompletionService.add(() -> {
-                    UrlDocument document = getDocument(currentUrl, errors, hosts);
-                    if (document != null) {
-                        downloaded.add(document.getUrl());
-                    }
-                    return document;
-                });
-                extractCompletionService.add(() -> getFutureLinks(add, errors));
+                futures.add(new UrlLinks(currentUrl,
+                        extractService.submit(() -> getFutureLinks(
+                                downloadService.submit(() -> {
+                                            UrlDocument document = getDocument(currentUrl, hosts);
+                                            downloaded.add(document.getUrl());
+                                            return document;
+                                        }
+                                ))
+                        ))
+                );
             }
-            extractCompletionService.pollAll(extracted);
+            for (UrlLinks future : futures) {
+                try {
+                    for (String u : future.getUrls().get()) {
+                        if (!used.contains(u) && urlPredicate.test(u)) {
+                            next.add(u);
+                            used.add(u);
+                        }
+                    }
+                } catch (ExecutionException e) {
+                    errors.put(future.getUrl(), wrapException(e));
+                } catch (InterruptedException e) {
+                    close();
+                    break;
+                }
+            }
 
             current = next;
         }
 
-        return new Result(downloaded, errors);
+        return new Result(downloaded.stream().toList(), errors);
     }
 
-    private List<String> getFutureLinks(Future<UrlDocument> document, ConcurrentMap<String, IOException> errors) {
+    private UrlDocument getDocument(String url, ConcurrentMap<String, Semaphore> hosts) throws IOException, InterruptedException {
+        String host = getHost(url);
+        hosts.putIfAbsent(host, new Semaphore(perHost));
         try {
-            UrlDocument urlDocument = document.get();
-            if (urlDocument == null) {
-
-            }
-            return document.extractLinks();
-        } catch (Exception e) {
-            putError(document.getUrl(), errors, e);
-            return null;
-        }
-    }
-
-    private UrlDocument getDocument(String url, ConcurrentMap<String, IOException> errors, ConcurrentMap<String, Semaphore> hosts) {
-        String host = null;
-        try {
-            host = getHost(url);
-            hosts.putIfAbsent(host, new Semaphore(perHost));
             hosts.get(host).acquire();
-            UrlDocument document = new UrlDocument(url, downloader.download(url));
+            return new UrlDocument(url, downloader.download(url));
+        } finally {
             hosts.get(host).release();
-            return document;
-        } catch (MalformedURLException e) {
-            putError(url, errors, e);
-            return null;
-        } catch (Exception e) {
-            hosts.get(host).release();
-            putError(url, errors, e);
-            return null;
         }
     }
 
-    private void putError(String url, ConcurrentMap<String, IOException> errors, Exception e) {
-        errors.put(url, e instanceof IOException ? (IOException) e : new IOException("Cannot download document", e.getCause()));
+    private List<String> getFutureLinks(Future<UrlDocument> document) throws IOException, InterruptedException {
+        try {
+            return document.get().document.extractLinks();
+        } catch (ExecutionException e) {
+            throw wrapException(e);
+        }
+    }
+
+    private IOException wrapException(ExecutionException e) {
+        return e.getCause() instanceof IOException ? (IOException) e.getCause() : new IOException(e.getCause());
     }
 
     /**
@@ -177,47 +168,6 @@ public class WebCrawler implements Crawler {
         }
     }
 
-    class WrappedCompletionService<T> {
-
-        private final CompletionService<T> completionService;
-        private int counter = 0;
-
-        WrappedCompletionService(CompletionService<T> completionService) {
-            this.completionService = completionService;
-        }
-
-        private Future<T> add(Callable<T> task) {
-            counter++;
-            return completionService.submit(task);
-        }
-
-        private T poll() {
-            try {
-                T t = completionService.take().get();
-                counter--;
-                return t;
-            } catch (InterruptedException e) {
-                close();
-                return null;
-            } catch (ExecutionException e) {
-                throw new IllegalStateException("No error expected" + e.getMessage());
-            }
-        }
-
-        private void pollAll(Consumer<? super T> consumer) {
-            while (!isEmpty()) {
-                T e = poll();
-                if (e != null) {
-                    consumer.accept(e);
-                }
-            }
-        }
-
-        private boolean isEmpty() {
-            return counter == 0;
-        }
-    }
-
     record UrlDocument(String url, Document document) implements Document {
 
         private String getUrl() {
@@ -227,6 +177,17 @@ public class WebCrawler implements Crawler {
         @Override
         public List<String> extractLinks() throws IOException {
             return document.extractLinks();
+        }
+    }
+
+    record UrlLinks(String url, Future<List<String>> urls) {
+
+        private String getUrl() {
+            return url;
+        }
+
+        private Future<List<String>> getUrls() {
+            return urls;
         }
     }
 }
