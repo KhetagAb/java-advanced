@@ -60,7 +60,13 @@ public class WebCrawler implements AdvancedCrawler {
             Downloader downloader = new CachingDownloader(Path.of(""));
             WebCrawler crawler = new WebCrawler(downloader, downloads, extractors, perHost);
 
-            crawler.download(args[0], depth);
+            Result download = crawler.download(args[0], depth);
+            System.out.println("Downloaded: ");
+            download.getDownloaded().forEach(System.out::println);
+            System.out.println("Errors: ");
+            download.getErrors().forEach((k, v) -> System.out.println(k + ": " + v));
+
+            crawler.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
