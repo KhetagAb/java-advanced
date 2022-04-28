@@ -30,8 +30,8 @@ public class WebCrawler implements Crawler {
         this.downloadService = Executors.newFixedThreadPool(downloaders);
         this.extractService = Executors.newFixedThreadPool(extractors);
         this.downloader = downloader;
-        this.downloadCompletionService = new WrappedCompletionService<>(new ExecutorCompletionService<>(this.downloadService));
-        this.extractCompletionService = new WrappedCompletionService<>(new ExecutorCompletionService<>(this.extractService));
+        this.downloadCompletionService = new WrappedCompletionService<>(this.downloadService);
+        this.extractCompletionService = new WrappedCompletionService<>(this.extractService);
     }
 
     private static String getHost(final String url) throws MalformedURLException {
@@ -136,26 +136,30 @@ public class WebCrawler implements Crawler {
 
     static class WrappedCompletionService<T> {
 
-        private final CompletionService<T> completionService;
+        private final ExecutorService executorService;
+        private final Queue<Future<T>> queue;
         private int counter = 0;
 
-        WrappedCompletionService(CompletionService<T> completionService) {
-            this.completionService = completionService;
+        WrappedCompletionService(ExecutorService executorService) {
+            this.executorService = executorService;
+            this.queue = new ArrayDeque<>();
         }
 
         private void add(Callable<T> task) {
             counter++;
-            completionService.submit(task);
+            queue.add(executorService.submit(task));
         }
 
         private T poll() {
             try {
-                T t = completionService.take().get();
+                T t = queue.remove().get();
                 counter--;
                 return t;
             } catch (ExecutionException e) {
+                System.out.println("exec");
                 return null;
             } catch (InterruptedException e) {
+                System.out.println("interrupted");
                 return null;
             }
         }
