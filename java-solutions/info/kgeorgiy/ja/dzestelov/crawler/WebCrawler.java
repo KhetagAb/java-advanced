@@ -54,8 +54,7 @@ public class WebCrawler implements AdvancedCrawler {
             extractors = getIArg(args, 3, Integer.MAX_VALUE);
             perHost = getIArg(args, 4, downloads);
         } catch (IllegalArgumentException e) {
-            // :NOTE: err, своё сообщение
-            System.out.println(e.getMessage());
+            System.out.println("Wrong arguments: " + e.getMessage());
             return;
         }
         try {
@@ -125,7 +124,7 @@ public class WebCrawler implements AdvancedCrawler {
 
     private Result downloadVerifyUrls(String url, int depth, Predicate<String> urlPredicate) {
         final List<String> downloaded = new ArrayList<>();
-        final ConcurrentMap<String, Semaphore> hosts = new ConcurrentHashMap<>();
+        final ConcurrentMap<String, HostQueue> hostQueue = new ConcurrentHashMap<>();
 
         final Map<String, IOException> errors = new HashMap<>();
 
@@ -136,15 +135,20 @@ public class WebCrawler implements AdvancedCrawler {
             current.add(url);
         }
 
+        Queue<FutureUrlLinks> futures = new LinkedBlockingQueue<>();
         while (depth-- > 0) {
-            List<FutureUrlLinks> futures = new ArrayList<>();
             while (!current.isEmpty()) {
                 String currentUrl = current.remove();
-                Future<Document> submit = downloadService.submit(() -> getDocument(currentUrl, hosts));
-                futures.add(new FutureUrlLinks(currentUrl, extractService.submit(() -> getFutureLinks(submit))));
+                try {
+                    Url u = new Url(currentUrl, getHost(url));
+                    submitUrl(u, hostQueue, futures);
+                } catch (MalformedURLException e) {
+                    errors.put(currentUrl, wrapException(e));
+                }
             }
             Queue<String> next = new ArrayDeque<>();
-            for (FutureUrlLinks future : futures) {
+            while (!futures.isEmpty()) {
+                FutureUrlLinks future = futures.poll();
                 try {
                     for (String u : future.getUrls().get()) {
                         if (!used.contains(u) && urlPredicate.test(u)) {
@@ -152,9 +156,9 @@ public class WebCrawler implements AdvancedCrawler {
                             used.add(u);
                         }
                     }
-                    downloaded.add(future.getUrl());
+                    downloaded.add(future.getUrl().toString());
                 } catch (ExecutionException e) {
-                    errors.put(future.getUrl(), wrapException(e));
+                    errors.put(future.getUrl().toString(), wrapException(e));
                 } catch (InterruptedException e) {
                     close();
                     break;
@@ -167,15 +171,35 @@ public class WebCrawler implements AdvancedCrawler {
         return new Result(downloaded, errors);
     }
 
-    private Document getDocument(String url, ConcurrentMap<String, Semaphore> hosts) throws IOException, InterruptedException {
-        String host = getHost(url);
-        hosts.putIfAbsent(host, new Semaphore(perHost));
-        try {
-            hosts.get(host).acquire();
-            return downloader.download(url);
-        } finally {
-            hosts.get(host).release();
-        }
+    private void submitUrl(Url url, ConcurrentMap<String, HostQueue> hosts, Queue<FutureUrlLinks> futures) {
+        String host = url.getHost();
+        hosts.putIfAbsent(host, new HostQueue());
+        hosts.compute(host, (h, q) -> {
+            if (q.busy == perHost) {
+                q.queue.add(url);
+            } else {
+                Callable<List<String>> action = () -> {
+                    return getFutureLinks(downloadService.submit(() -> {
+                                hosts.compute(host, (ch, cq) -> {
+                                    cq.busy++;
+                                    return cq;
+                                });
+                                Document download = downloader.download(url.toString());
+                                hosts.compute(host, (ch, cq) -> {
+                                    cq.busy--;
+                                    if (!cq.queue.isEmpty()) {
+                                        submitUrl(cq.queue.poll(), hosts, futures);
+                                    }
+                                    return cq;
+                                });
+                                return download;
+                            }
+                    ));
+                };
+                futures.add(new FutureUrlLinks(url, extractService.submit(action)));
+            }
+            return q;
+        });
     }
 
     private List<String> getFutureLinks(Future<Document> document) throws IOException, InterruptedException {
@@ -188,6 +212,10 @@ public class WebCrawler implements AdvancedCrawler {
 
     private IOException wrapException(ExecutionException e) {
         return e.getCause() instanceof IOException ? (IOException) e.getCause() : new IOException(e.getCause());
+    }
+
+    private IOException wrapException(Exception e) {
+        return e instanceof IOException ? (IOException) e : new IOException(e);
     }
 
     /**
@@ -215,9 +243,27 @@ public class WebCrawler implements AdvancedCrawler {
         }
     }
 
-    record FutureUrlLinks(String url, Future<List<String>> urls) {
+    private static class HostQueue {
 
-        private String getUrl() {
+        private final Queue<Url> queue = new ArrayDeque<>();
+        private int busy = 0;
+    }
+
+    record Url(String url, String host) {
+
+        @Override
+        public String toString() {
+            return url;
+        }
+
+        private String getHost() {
+            return url;
+        }
+    }
+
+    record FutureUrlLinks(Url url, Future<List<String>> urls) {
+
+        private Url getUrl() {
             return url;
         }
 
