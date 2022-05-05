@@ -3,7 +3,6 @@ package info.kgeorgiy.ja.dzestelov.hello;
 import info.kgeorgiy.java.advanced.hello.HelloClient;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
@@ -38,21 +37,15 @@ public class HelloUDPClient implements HelloClient {
         Runnable runnable = () -> {
             for (int n = 0; n < requests; n++) {
                 String request = (prefix + Thread.currentThread().getName() + "_" + n);
-                byte[] requestBuffer = request.getBytes(CHARSET);
-                DatagramPacket requestPacket = new DatagramPacket(requestBuffer, requestBuffer.length, socketAddress);
 
                 try (DatagramSocket socket = new DatagramSocket()) {
                     socket.setSoTimeout(SOCKET_TIMEOUT_MILLISECONDS);
                     do {
                         try {
-                            socket.send(requestPacket);
+                            socket.send(UDPUtils.getRequestPacket(request, socketAddress, CHARSET));
                             System.out.println("Request: " + request + " sent.");
 
-                            int maxSize = socket.getReceiveBufferSize();
-                            DatagramPacket receive = new DatagramPacket(new byte[maxSize], maxSize);
-                            socket.receive(receive);
-
-                            String response = new String(receive.getData(), receive.getOffset(), receive.getLength(), CHARSET);
+                            String response = UDPUtils.getResponseString(socket, CHARSET);
                             if (response.contains(request)) {
                                 System.out.println("Receive: " + response);
                                 break;
