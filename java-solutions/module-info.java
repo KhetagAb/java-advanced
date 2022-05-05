@@ -7,6 +7,7 @@ module info.kgeorgiy.ja.dzestelov {
     requires info.kgeorgiy.java.advanced.implementor;
     requires info.kgeorgiy.java.advanced.student;
     requires info.kgeorgiy.java.advanced.crawler;
+    requires info.kgeorgiy.java.advanced.hello;
 
     exports info.kgeorgiy.ja.dzestelov.implementor;
 }
