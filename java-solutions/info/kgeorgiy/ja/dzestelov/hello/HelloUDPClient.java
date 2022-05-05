@@ -17,8 +17,8 @@ import java.util.stream.IntStream;
 
 public class HelloUDPClient implements HelloClient {
 
-    private static final int CLOSE_TIMEOUT_SECONDS = 10;
-    private static final int SOCKET_TIMEOUT_MILLISECONDS = 500;
+    private static final int CLOSE_TIMEOUT_MILLISECONDS = 10000;
+    private static final int SOCKET_TIMEOUT_MILLISECONDS = 100;
     private final Charset CHARSET = StandardCharsets.UTF_8;
     private ExecutorService executorService;
     private InetSocketAddress socketAddress;
@@ -59,7 +59,7 @@ public class HelloUDPClient implements HelloClient {
                             }
                         } catch (IOException ignored) {
                         }
-                    } while (!socket.isClosed());
+                    } while (!socket.isClosed() && !Thread.currentThread().isInterrupted());
                 } catch (SocketException e) {
                     throw new UDPClientException("Socket could not be opened", e);
                 }
@@ -89,7 +89,8 @@ public class HelloUDPClient implements HelloClient {
 
     private void close() {
         try {
-            if (!executorService.awaitTermination(CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            executorService.shutdown();
+            if (!executorService.awaitTermination(CLOSE_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)) {
                 executorService.shutdownNow();
             }
         } catch (InterruptedException e) {
