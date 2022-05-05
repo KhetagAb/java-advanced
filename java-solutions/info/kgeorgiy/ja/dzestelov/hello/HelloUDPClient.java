@@ -6,9 +6,12 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -32,7 +35,8 @@ public class HelloUDPClient implements HelloClient {
 
         Runnable runnable = () -> {
             for (int n = 0; n < requests; n++) {
-                String request = (prefix + Thread.currentThread().getName() + "_" + n);
+                String thread = Thread.currentThread().getName();
+                String request = (prefix + thread + "_" + n);
 
                 try (DatagramSocket socket = new DatagramSocket()) {
                     socket.setSoTimeout(SOCKET_TIMEOUT_MILLISECONDS);
@@ -42,8 +46,9 @@ public class HelloUDPClient implements HelloClient {
                             System.out.println("Request: " + request + " sent.");
 
                             String response = UDPUtils.getResponseString(socket);
-                            if (response.contains(request)) {
-                                System.out.println("Receive: " + response);
+                            List<String> numbers = getNumbers(response);
+                            if (numbers.size() == 2 && numbers.get(0).equals(thread) && numbers.get(1).equals(String.valueOf(n))) {
+                                System.out.println("Received: " + response);
                                 break;
                             }
                         } catch (IOException ignored) {
@@ -71,13 +76,18 @@ public class HelloUDPClient implements HelloClient {
                 }
                 exp.addSuppressed(e.getCause());
             } finally {
-                close();
+                UDPUtils.shutdownExecutorService(executorService);
             }
         }
     }
 
-    private void close() {
-        UDPUtils.shutdownExecutorService(executorService);
+    private List<String> getNumbers(String str) {
+        Matcher m = Pattern.compile("\\d+").matcher(str);
+        List<String> result = new ArrayList<>();
+        while (m.find()) {
+            result.add(m.group());
+        }
+        return result;
     }
 
     private static class HelloThreadFactory implements ThreadFactory {

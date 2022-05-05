@@ -39,23 +39,26 @@ public class HelloUDPServer implements HelloServer {
 
         server.submit(() -> {
             try (DatagramSocket datagramSocket = new DatagramSocket(port)) {
+                datagramSocket.setSoTimeout(100);
                 do {
                     try {
                         DatagramPacket request = UDPUtils.getResponsePacket(datagramSocket);
-                        String responseString = UDPUtils.getResponseString(request);
+                        String requestString = UDPUtils.getResponseString(request);
                         responses.submit(() -> {
-                            DatagramPacket packet = UDPUtils.getRequestPacket("Hello, " + responseString, request.getSocketAddress());
+                            DatagramPacket packet = UDPUtils.getRequestPacket("Hello, " + requestString, request.getSocketAddress());
                             try {
                                 datagramSocket.send(packet);
                             } catch (IOException ignored) {
                             }
                         });
                     } catch (IOException e) {
-                        System.out.println("Cannot get response packet: " + e.getMessage());
+                        throw new UDPClientException("Cannot get response packet", e);
                     }
                 } while (!datagramSocket.isClosed() && !Thread.currentThread().isInterrupted());
             } catch (SocketException e) {
                 throw new UDPClientException("Socket cannot be opened", e);
+            } finally {
+                close();
             }
         });
     }
@@ -65,7 +68,5 @@ public class HelloUDPServer implements HelloServer {
      */
     @Override
     public void close() {
-        UDPUtils.shutdownExecutorService(server);
-        UDPUtils.shutdownExecutorService(responses);
     }
 }
