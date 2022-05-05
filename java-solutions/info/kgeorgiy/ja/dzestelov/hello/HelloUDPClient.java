@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -18,7 +16,6 @@ public class HelloUDPClient implements HelloClient {
 
     private static final int CLOSE_TIMEOUT_MILLISECONDS = 10000;
     private static final int SOCKET_TIMEOUT_MILLISECONDS = 100;
-    private final Charset CHARSET = StandardCharsets.UTF_8;
     private ExecutorService executorService;
     private InetSocketAddress socketAddress;
 
@@ -42,10 +39,10 @@ public class HelloUDPClient implements HelloClient {
                     socket.setSoTimeout(SOCKET_TIMEOUT_MILLISECONDS);
                     do {
                         try {
-                            socket.send(UDPUtils.getRequestPacket(request, socketAddress, CHARSET));
+                            socket.send(UDPUtils.getRequestPacket(request, socketAddress));
                             System.out.println("Request: " + request + " sent.");
 
-                            String response = UDPUtils.getResponseString(socket, CHARSET);
+                            String response = UDPUtils.getResponseString(socket);
                             if (response.contains(request)) {
                                 System.out.println("Receive: " + response);
                                 break;
