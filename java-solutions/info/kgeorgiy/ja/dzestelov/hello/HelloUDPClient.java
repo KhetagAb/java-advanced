@@ -17,7 +17,7 @@ import java.util.stream.IntStream;
 
 public class HelloUDPClient implements HelloClient {
 
-    private static final int SOCKET_TIMEOUT_MILLISECONDS = 100;
+    private static final int SOCKET_TIMEOUT_MILLISECONDS = 200;
     private ExecutorService executorService;
     private InetSocketAddress socketAddress;
 

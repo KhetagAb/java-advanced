@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 class UDPUtils {
 
-    private static final int CLOSE_TIMEOUT_MILLISECONDS = 1000;
+    private static final int CLOSE_TIMEOUT_MILLISECONDS = 10000;
     private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
     static DatagramPacket getRequestPacket(String request, SocketAddress socketAddress) {

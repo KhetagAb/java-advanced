@@ -6,16 +6,20 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 /**
  * Class represents simple UDP server
  */
 public class HelloUDPServer implements HelloServer {
 
+    private static final int SOCKET_TIMEOUT = 1000;
+
     private boolean isStarted = false;
-    private ExecutorService server;
-    private ExecutorService responses;
+    private DatagramSocket socket;
+    private ExecutorService workers;
 
     /**
      * Starts a new Hello server.
@@ -32,41 +36,35 @@ public class HelloUDPServer implements HelloServer {
             isStarted = true;
         }
 
-        responses = new ThreadPoolExecutor(threads, threads,
-                0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(), new ThreadPoolExecutor.DiscardPolicy());
-        server = Executors.newSingleThreadExecutor();
+        try {
+            socket = new DatagramSocket(port);
+            socket.setSoTimeout(SOCKET_TIMEOUT);
+        } catch (SocketException e) {
+            throw new UDPClientException("Cannot create socket", e);
+        }
 
-        server.submit(() -> {
-            try (DatagramSocket datagramSocket = new DatagramSocket(port)) {
-                datagramSocket.setSoTimeout(100);
-                do {
-                    try {
-                        DatagramPacket request = UDPUtils.getResponsePacket(datagramSocket);
-                        String requestString = UDPUtils.getResponseString(request);
-                        responses.submit(() -> {
+        workers = Executors.newFixedThreadPool(threads);
+
+        IntStream.range(0, threads)
+                .forEach(n -> workers.submit(() -> {
+                    while (!socket.isClosed() && !Thread.currentThread().isInterrupted()) {
+                        try {
+                            DatagramPacket request = UDPUtils.getResponsePacket(socket);
+                            String requestString = UDPUtils.getResponseString(request);
+
                             DatagramPacket packet = UDPUtils.getRequestPacket("Hello, " + requestString, request.getSocketAddress());
-                            try {
-                                datagramSocket.send(packet);
-                            } catch (IOException ignored) {
-                            }
-                        });
-                    } catch (IOException e) {
-                        throw new UDPClientException("Cannot get response packet", e);
+                            socket.send(packet);
+                        } catch (IOException ignored) {
+                        }
                     }
-                } while (!datagramSocket.isClosed() && !Thread.currentThread().isInterrupted());
-            } catch (SocketException e) {
-                throw new UDPClientException("Socket cannot be opened", e);
-            } finally {
-                close();
-            }
-        });
+                }));
     }
-
     /**
      * Stops server and deallocates all resources.
      */
     @Override
     public void close() {
+        socket.close();
+        workers.shutdownNow();
     }
 }
