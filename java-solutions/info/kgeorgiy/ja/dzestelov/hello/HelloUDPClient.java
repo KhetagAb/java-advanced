@@ -14,7 +14,6 @@ import java.util.stream.IntStream;
 
 public class HelloUDPClient implements HelloClient {
 
-    private static final int CLOSE_TIMEOUT_MILLISECONDS = 10000;
     private static final int SOCKET_TIMEOUT_MILLISECONDS = 100;
     private ExecutorService executorService;
     private InetSocketAddress socketAddress;
@@ -78,14 +77,7 @@ public class HelloUDPClient implements HelloClient {
     }
 
     private void close() {
-        try {
-            executorService.shutdown();
-            if (!executorService.awaitTermination(CLOSE_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-        }
+        UDPUtils.shutdownExecutorService(executorService);
     }
 
     private static class HelloThreadFactory implements ThreadFactory {
