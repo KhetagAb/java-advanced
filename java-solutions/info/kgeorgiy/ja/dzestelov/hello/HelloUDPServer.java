@@ -30,6 +30,7 @@ public class HelloUDPServer implements HelloServer {
      */
     @Override
     public void start(int port, int threads) {
+        // :NOTE: socket == null
         if (isStarted) {
             return;
         } else {

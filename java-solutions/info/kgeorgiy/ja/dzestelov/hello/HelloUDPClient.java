@@ -33,6 +33,10 @@ public class HelloUDPClient implements HelloClient {
 
         executorService = Executors.newFixedThreadPool(threads, HelloThreadFactory.getFactory());
 
+        // :NOTE: for (int i = 0; i < threads; i++) {
+//            executorService.submit()
+//        }
+
         Runnable runnable = () -> {
             for (int n = 0; n < requests; n++) {
                 String thread = Thread.currentThread().getName();
